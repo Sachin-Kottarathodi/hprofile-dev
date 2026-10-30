@@ -1,0 +1,63 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - Token E2E</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">Token E2E</h1><p class=blog-post-info>Posted: <time>2026-05-21</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Categories:
+<a class=blog-taxonomy-info href=/categories/tech>tech</a></span>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/genai>GenAI</a>, <a class=blog-taxonomy-info href=/tags/llms>LLMs</a></span></p><div class=blog-post-content><blockquote><p><strong>Disclaimer</strong></p><p>This post began as my scattered notes and questions while learning
+LLMs. I couldn&rsquo;t stitch them together so used AI to do that for me.
+The fragments are connected into a coherent model. It is intentionally
+simplified as I am not there yet for this to be too complex or
+detailed at this point.</p></blockquote><hr><h2 id=why-this-exists>Why this exists</h2><p>I found myself collecting terms like BPE, RoPE, KV Cache, Teacher
+Forcing, PagedAttention, Quantization and Data Parallelism. Individually
+they made sense, but I had no mental map connecting them.</p><p>The easiest way to understand an LLM is to follow <strong>the life of a
+token</strong>.</p><hr><h2 id=stage-1-----raw-text>Stage 1 &mdash; Raw Text</h2><p>Everything starts with raw text from the user.</p><pre><code>&quot;Explain TCP.&quot;
+</code></pre><p>The model cannot consume characters directly.</p><hr><h2 id=stage-2-----pre-tokenization>Stage 2 &mdash; Pre-tokenization</h2><p>A deterministic preprocessing step separates punctuation, whitespace and
+other lexical boundaries so the tokenizer does not create unnecessary
+vocabulary variants.</p><hr><h2 id=stage-3-----subword-tokenization-bpe>Stage 3 &mdash; Subword Tokenization (BPE)</h2><p>The tokenizer converts text into reusable subword pieces and finally
+into integer Token IDs.</p><p>Purpose:</p><ul><li>Balance vocabulary size</li><li>Reduce out-of-vocabulary words</li><li>Keep context windows reasonably compact</li></ul><hr><h2 id=stage-4-----embedding-lookup>Stage 4 &mdash; Embedding Lookup</h2><p>Each Token ID indexes into the embedding matrix.</p><pre><code>Token ID
+    ↓
+Embedding Matrix
+    ↓
+Dense Vector
+</code></pre><p>The model now works entirely with vectors.</p><hr><h2 id=stage-5-----positional-encoding-rope>Stage 5 &mdash; Positional Encoding (RoPE)</h2><p>Transformers process tokens simultaneously, so position must be encoded.</p><p>RoPE injects relative positional information directly into attention
+instead of using a fixed lookup table.</p><hr><h2 id=stage-6-----self-attention>Stage 6 &mdash; Self Attention</h2><p>Every token computes:</p><ul><li>Query</li><li>Key</li><li>Value</li></ul><p>Attention determines which previous tokens are important for
+understanding the current one.</p><p>During generation, <strong>Causal Masking</strong> prevents tokens from attending to
+future tokens.</p><hr><h2 id=stage-7-----pre-training>Stage 7 &mdash; Pre-training</h2><p>The model is trained using <strong>Next Token Prediction</strong>.</p><p>Teacher Forcing supplies the correct sequence during training, allowing
+the entire context window to be processed in parallel.</p><p>Large models train using combinations of:</p><ul><li>Data Parallelism</li><li>Tensor Parallelism</li><li>Pipeline Parallelism</li></ul><hr><h2 id=stage-8-----inference>Stage 8 &mdash; Inference</h2><p>Deployment is different from training.</p><p>Generation becomes autoregressive:</p><pre><code>Prompt
+ ↓
+Predict one token
+ ↓
+Append token
+ ↓
+Predict next token
+</code></pre><hr><h2 id=stage-9-----kv-cache>Stage 9 &mdash; KV Cache</h2><p>Previously computed Keys and Values are stored in GPU memory.</p><p>Instead of recomputing attention over the entire prompt every generation
+step, only the newest token performs fresh computation.</p><hr><h2 id=stage-10-----pagedattention>Stage 10 &mdash; PagedAttention</h2><p>Serving engines like vLLM divide the KV Cache into pages instead of
+requiring large contiguous allocations.</p><p>Benefits:</p><ul><li>Better GPU memory utilization</li><li>Less fragmentation</li><li>Higher serving throughput</li></ul><hr><h2 id=stage-11-----quantization>Stage 11 &mdash; Quantization</h2><p>Weights are stored using lower precision formats such as FP8 or INT4.</p><p>Benefits:</p><ul><li>Smaller models</li><li>Less VRAM</li><li>Higher throughput</li><li>Lower serving cost</li></ul><p>Trade-off:</p><ul><li>Slight reduction in numerical precision.</li></ul><hr><h2 id=the-complete-pipeline>The Complete Pipeline</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Raw Text
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Pre-tokenization
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Subword Tokenization (BPE)
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Token IDs
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Embedding Matrix
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>RoPE Positional Encoding
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Transformer Layers
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Self Attention + Causal Mask
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Next Token Prediction
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Autoregressive Generation
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>KV Cache
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>PagedAttention
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Quantization (Serving Optimization)
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Repeat until completion
+</span></span></code></pre></div><hr></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>

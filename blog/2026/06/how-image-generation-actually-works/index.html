@@ -1,0 +1,672 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - How Image Generation Actually Works</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">How Image Generation Actually Works</h1><p class=blog-post-info>Posted: <time>2026-06-29</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Categories:
+<a class=blog-taxonomy-info href=/categories/tech>tech</a></span>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/genai>genai</a>, <a class=blog-taxonomy-info href=/tags/tech>tech</a></span></p><div class=blog-post-content><h1 id=fom-pixels-to-diffusion-how-image-generation-actually-works>Fom Pixels to Diffusion: How Image Generation Actually Works</h1><blockquote><p>This post began as scattered notes and questions while trying to understand each of these topics in more detail. The deeper the questions went, the more the concepts started connecting, but the notes themselves remained fragmented. AI was used to piece those fragments together into a coherent sequence. The result is a connected mental model of the topics discussed. It is intentionally simplified, as the goal at this stage is to understand the core ideas without getting lost in the deeper mathematical and implementation details.</p></blockquote><hr><p>I started learning language models from the text-generation side.</p><p>Tokens. Embeddings. Transformers. Attention. Q, K, V. Autoregressive generation. Decoder-only models.</p><p>Then I moved into image generation and initially tried to map everything directly onto what I already knew.</p><p>That immediately created a problem.</p><p>If text generation is essentially:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>token → token → token → token → ...
+</span></span></code></pre></div><p>why can&rsquo;t image generation do the same thing?</p><p>An image is just data.</p><p>A pixel has values.</p><p>So perhaps:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>pixel → pixel → pixel → pixel → ...
+</span></span></code></pre></div><p>and a sufficiently large Transformer could generate an image.</p><p>Technically, it could.</p><p>Practically, this becomes a terrible way to represent the problem.</p><p>And understanding why eventually leads to diffusion models.</p><hr><h1 id=1-start-with-the-image-itself>1. Start with the image itself</h1><p>A normal RGB image can be represented as:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Height × Width × 3
+</span></span></code></pre></div><p>The <code>3</code> represents:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>R = Red
+</span></span><span class=line><span class=cl>G = Green
+</span></span><span class=line><span class=cl>B = Blue
+</span></span></code></pre></div><p>For example:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>512 × 512 × 3
+</span></span></code></pre></div><p>contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>512 × 512 × 3 = 786,432
+</span></span></code></pre></div><p>individual numerical values.</p><p>A naive idea would be to treat each pixel, or some representation of each pixel, as a token in a sequence.</p><p>Then image generation becomes something like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>pixel 1
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>pixel 2
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>pixel 3
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>pixel 786,432
+</span></span></code></pre></div><p>This is theoretically possible.</p><p>But there are two immediate problems.</p><p>First, the sequence becomes enormous.</p><p>Second, images don&rsquo;t naturally have the same sequential structure as text.</p><hr><h1 id=2-why-text-is-naturally-suited-to-autoregression>2. Why text is naturally suited to autoregression</h1><p>Consider:</p><blockquote><p>The cat sat on the</p></blockquote><p>The next token is constrained by what came before:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>The → cat → sat → on → the → ???
+</span></span></code></pre></div><p>An autoregressive model predicts:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>P(next token | previous tokens)
+</span></span></code></pre></div><p>Then it generates the next token and feeds it back into the model.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Prompt
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>predict token 1
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>append token 1
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>predict token 2
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>append token 2
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>This is sequential, but language itself has a natural sequential structure.</p><p>An image doesn&rsquo;t.</p><p>Consider:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>┌───────────────────────┐
+</span></span><span class=line><span class=cl>│                       │
+</span></span><span class=line><span class=cl>│       🐱              │
+</span></span><span class=line><span class=cl>│          🏠           │
+</span></span><span class=line><span class=cl>│                       │
+</span></span><span class=line><span class=cl>└───────────────────────┘
+</span></span></code></pre></div><p>There is no obvious reason why the model should first generate the top-left pixel, then the next pixel, then the next.</p><p>The entire image has spatial relationships.</p><p>The pixels all influence one another.</p><p>So forcing an image into a gigantic left-to-right sequence is possible, but inefficient.</p><hr><h1 id=3-could-we-just-use-a-transformer-anyway>3. Could we just use a Transformer anyway?</h1><p>Yes.</p><p>This is an important distinction.</p><p>The problem isn&rsquo;t that a Transformer <em>cannot</em> generate images.</p><p>The problem is that the representation would be extremely expensive.</p><p>Imagine treating every pixel as a token:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>786,432 positions
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Transformer
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>generate one position at a time
+</span></span></code></pre></div><p>Now the model has an enormous sequence.</p><p>And if generation is autoregressive:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1 → 2 → 3 → 4 → ... → 786,432
+</span></span></code></pre></div><p>you have an enormous number of sequential generation steps.</p><p>So the problem is not fundamentally:</p><blockquote><p>&ldquo;Transformers can&rsquo;t generate images.&rdquo;</p></blockquote><p>It is:</p><blockquote><p><strong>&ldquo;This is a very inefficient representation and generation strategy for images.&rdquo;</strong></p></blockquote><p>That distinction matters.</p><hr><h1 id=4-the-idea-of-learning-a-better-representation>4. The idea of learning a better representation</h1><p>This leads to a much more important idea.</p><p>Instead of operating directly on the raw image, can we find a <strong>compact representation</strong> of the image?</p><p>Something like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Encoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Compact representation
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Do expensive computation here
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Decoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Image
+</span></span></code></pre></div><p>This is the basic intuition behind latent representations.</p><p>The model learns a smaller space that preserves the information necessary to reconstruct the image.</p><p>For example, conceptually, an image might go from:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>512 × 512 × 3
+</span></span></code></pre></div><p>to something more like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>64 × 64 × 4
+</span></span></code></pre></div><p>The exact dimensions depend on the model, but the important point is the enormous reduction in the number of values.</p><p>Notice something interesting here:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>512 × 512 × 3 = 786,432
+</span></span><span class=line><span class=cl>64 × 64 × 4  = 16,384
+</span></span></code></pre></div><p>So even though the latent representation has <strong>4 channels rather than 3</strong>, it has dramatically fewer total values because the spatial dimensions have been compressed.</p><p>It is not simply:</p><blockquote><p>3 values per pixel become 4 values per pixel.</p></blockquote><p>It is:</p><blockquote><p><strong>A large spatial representation is compressed into a much smaller learned representation.</strong></p></blockquote><hr><h1 id=5-the-encoder-becomes-important>5. The encoder becomes important</h1><p>Now there is an obvious consequence.</p><p>If the encoder produces a bad representation:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Good image
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Bad encoder
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Bad latent representation
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Diffusion
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Decoder
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Bad image
+</span></span></code></pre></div><p>The diffusion model cannot magically recover information that the encoder threw away.</p><p>So the encoder has an important job:</p><blockquote><p><strong>Compress the image while preserving the information that matters for reconstruction and generation.</strong></p></blockquote><p>The decoder has the reverse job:</p><blockquote><p><strong>Turn the compact latent representation back into an image.</strong></p></blockquote><p>This gives us an important separation of responsibilities:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Encoder / Decoder
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>How do I represent an image compactly?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Diffusion model
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>How do I generate good representations in that space?
+</span></span></code></pre></div><p>That is the basic architectural intuition behind <strong>latent diffusion</strong>.</p><hr><h1 id=6-diffusion-starts-with-a-strange-idea>6. Diffusion starts with a strange idea</h1><p>Now comes the part that initially seemed almost absurd.</p><p>Instead of trying to directly learn:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>random noise → beautiful image
+</span></span></code></pre></div><p>we can construct a process that goes in the opposite direction first.</p><p>Take a real image.</p><p>Add a little noise.</p><p>Then more.</p><p>Then more.</p><p>Eventually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Real image
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>slightly noisy
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>more noisy
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>very noisy
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>almost pure noise
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>pure noise
+</span></span></code></pre></div><p>This is the <strong>forward diffusion process</strong>.</p><p>The remarkable idea is:</p><blockquote><p>If we know how an image was progressively destroyed by noise, can a neural network learn how to reverse that process?</p></blockquote><p>That gives us:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>PURE NOISE
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>remove noise
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>remove noise
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>remove noise
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>IMAGE
+</span></span></code></pre></div><p>This is the fundamental intuition behind diffusion-based generation.</p><hr><h1 id=7-why-call-it-diffusion>7. Why call it diffusion?</h1><p>The name comes from the connection to physical diffusion processes.</p><p>In physics, a system can gradually move from a structured state toward a more random/disordered state.</p><p>Diffusion models borrow this idea mathematically.</p><p>We deliberately take structured data and gradually corrupt it with noise.</p><p>Then we learn the reverse process.</p><p>The remarkable part is not merely that noise can be removed.</p><p>It is that by learning the reverse process across a huge amount of data, the model learns something about the <strong>distribution of the data itself</strong>.</p><hr><h1 id=8-from-density-models-to-score-based-thinking>8. From density models to score-based thinking</h1><p>This connects to an earlier question about classical density models.</p><p>A density model tries to describe:</p><blockquote><p><strong>Where is data likely to occur?</strong></p></blockquote><p>Imagine all possible images as an enormous space.</p><p>Most arbitrary points in that space are nonsense.</p><p>The space of realistic images occupies some complicated region:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>All possible representations
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      .       .
+</span></span><span class=line><span class=cl>  .       ███████
+</span></span><span class=line><span class=cl>      █████████████
+</span></span><span class=line><span class=cl> .   ███████████████
+</span></span><span class=line><span class=cl>     █████████████
+</span></span><span class=line><span class=cl>       ███████
+</span></span><span class=line><span class=cl>  .                 .
+</span></span><span class=line><span class=cl>       .
+</span></span></code></pre></div><p>The model wants to understand the structure of this distribution.</p><p>Classical probabilistic models often try to explicitly model the probability density:</p><p>[
+p(x)
+]</p><p>But for complicated high-dimensional distributions, directly calculating and normalizing these probabilities can become extremely difficult.</p><p>This is where the <strong>score function</strong> becomes useful.</p><p>The score is essentially related to:</p><p>[
+\nabla_x \log p(x)
+]</p><p>Informally:</p><blockquote><p><strong>Which direction should I move this point to get toward a region of higher probability?</strong></p></blockquote><p>So instead of explicitly asking:</p><blockquote><p>&ldquo;What is the exact probability of this image?&rdquo;</p></blockquote><p>we can ask something more local:</p><blockquote><p><strong>&ldquo;In which direction should I move this noisy representation to make it more like something from the data distribution?&rdquo;</strong></p></blockquote><p>This idea is deeply connected to modern score-based generative modeling and diffusion.</p><hr><h1 id=9-ddpm--putting-the-idea-into-a-trainable-model>9. DDPM — putting the idea into a trainable model</h1><p>One of the foundational formulations is:</p><p><strong>DDPM — Denoising Diffusion Probabilistic Model.</strong></p><p>The training idea is surprisingly simple.</p><p>Take a real image:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>x₀
+</span></span></code></pre></div><p>Add a known amount of noise:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>xₜ
+</span></span></code></pre></div><p>The model receives the noisy image and the timestep.</p><p>It is trained to predict the noise that was added.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Original image
+</span></span><span class=line><span class=cl>      +
+</span></span><span class=line><span class=cl>Known random noise
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Noisy image
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Neural network
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>&#34;What noise is present?&#34;
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Predicted noise
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Compare with actual noise
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Loss
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Backpropagation
+</span></span></code></pre></div><p>A simplified PyTorch-style training loop might look conceptually like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>noise</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>randn_like</span><span class=p>(</span><span class=n>x</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>noisy_x</span> <span class=o>=</span> <span class=n>add_noise</span><span class=p>(</span><span class=n>x</span><span class=p>,</span> <span class=n>noise</span><span class=p>,</span> <span class=n>t</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>predicted_noise</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=n>noisy_x</span><span class=p>,</span> <span class=n>t</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>loss</span> <span class=o>=</span> <span class=n>mse_loss</span><span class=p>(</span><span class=n>predicted_noise</span><span class=p>,</span> <span class=n>noise</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</span></span></code></pre></div><p>The important thing isn&rsquo;t memorizing the PyTorch code.</p><p>The important thing is understanding what it means:</p><blockquote><p><strong>The network learns to recognize and predict noise at different levels of corruption.</strong></p></blockquote><hr><h1 id=10-what-are-beta-alpha-and-alpha-bar>10. What are beta, alpha and alpha-bar?</h1><p>The implementation introduces variables such as:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>β (beta)
+</span></span><span class=line><span class=cl>α (alpha)
+</span></span><span class=line><span class=cl>ᾱ (alpha-bar)
+</span></span></code></pre></div><p>They describe how the noise schedule evolves.</p><p>The useful mental model is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>βₜ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>How much new noise is introduced at this timestep?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>αₜ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>How much signal is retained at this timestep?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>ᾱₜ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>How much of the original signal remains
+</span></span><span class=line><span class=cl>after accumulating the process up to this timestep?
+</span></span></code></pre></div><p>A common relationship is:</p><p>[
+\alpha_t = 1-\beta_t
+]</p><p>And α-bar is the cumulative product of the α values up to that point.</p><p>The exact equations matter when implementing DDPM, but at this stage the conceptual meaning is more important:</p><blockquote><p><strong>They control the balance between original signal and accumulated noise.</strong></p></blockquote><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>t = early
+</span></span><span class=line><span class=cl>→ mostly image
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>t = middle
+</span></span><span class=line><span class=cl>→ image + substantial noise
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>t = late
+</span></span><span class=line><span class=cl>→ mostly noise
+</span></span></code></pre></div><p>The model learns to operate across this entire range.</p><hr><h1 id=11-but-what-neural-network-actually-removes-the-noise>11. But what neural network actually removes the noise?</h1><p>Enter the <strong>U-Net</strong>.</p><p>The name is literal: the architecture roughly looks like a U.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                 ┌───────────────┐
+</span></span><span class=line><span class=cl>                 │               │
+</span></span><span class=line><span class=cl>Input ──→ ↓ ──→ ↓ ──→ bottleneck ──→ ↑ ──→ ↑ ──→ Output
+</span></span><span class=line><span class=cl>          │       │                │       │
+</span></span><span class=line><span class=cl>          └───────┼────────────────┘       │
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>             skip connections
+</span></span></code></pre></div><p>It has two broad sides.</p><h3 id=downsampling-path>Downsampling path</h3><p>The network progressively compresses the spatial representation.</p><p>It can learn increasingly abstract features:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>edges
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>shapes
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>parts
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>objects / structure
+</span></span></code></pre></div><h3 id=upsampling-path>Upsampling path</h3><p>It reconstructs a representation at higher spatial resolution.</p><h3 id=skip-connections>Skip connections</h3><p>The network connects corresponding levels of the downsampling and upsampling paths.</p><p>This allows fine-grained spatial information to be carried forward.</p><p>That matters because image generation requires both:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Global information:
+</span></span><span class=line><span class=cl>&#34;This is a face.&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Local information:
+</span></span><span class=line><span class=cl>&#34;An edge exists exactly here.&#34;
+</span></span></code></pre></div><p>The U-Net gives the network a way to work with both.</p><hr><h1 id=12-diffusion-generation>12. Diffusion generation</h1><p>Once the network has learned the denoising process, generation starts from random noise.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Random noise
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>U-Net predicts noise
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Remove some noise
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>U-Net predicts noise
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Remove some noise
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Image
+</span></span></code></pre></div><p>It is not:</p><blockquote><p>&ldquo;The model knows the final image and simply reveals it.&rdquo;</p></blockquote><p>Rather, each step makes the representation more consistent with the learned data distribution.</p><p>A rough image gradually emerges.</p><hr><h1 id=13-why-not-do-this-directly-on-pixels>13. Why not do this directly on pixels?</h1><p>We could.</p><p>That is called <strong>pixel-space diffusion</strong>.</p><p>But high-resolution images contain enormous numbers of values.</p><p>So instead of:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>diffusion over millions of pixel values
+</span></span></code></pre></div><p>we can do:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Encoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Latent representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Diffusion
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Latent representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Decoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Image
+</span></span></code></pre></div><p>This is <strong>latent diffusion</strong>.</p><p>It is much more computationally practical.</p><hr><h1 id=14-stable-diffusion-and-latent-diffusion>14. Stable Diffusion and Latent Diffusion</h1><p>This distinction is important.</p><p><strong>Diffusion model</strong> is the broad family.</p><p><strong>Latent diffusion</strong> is the technique of performing diffusion in a learned compressed representation rather than directly in pixel space.</p><p><strong>Stable Diffusion</strong> is a well-known family of models built around latent diffusion.</p><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Diffusion
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├── Pixel-space diffusion
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Latent diffusion
+</span></span><span class=line><span class=cl>             │
+</span></span><span class=line><span class=cl>             └── Stable Diffusion family
+</span></span></code></pre></div><p>The basic Stable Diffusion mental model is therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Text prompt
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Text encoder
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Text representation
+</span></span><span class=line><span class=cl>     
+</span></span><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Image encoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Latent representation
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Diffusion / U-Net
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Latent representation
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Image decoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Generated image
+</span></span></code></pre></div><p>The exact architecture of modern image-generation systems varies, but this is the useful conceptual foundation.</p><hr><h1 id=15-where-does-the-text-prompt-enter>15. Where does the text prompt enter?</h1><p>Now the next question becomes interesting.</p><p>Suppose the prompt is:</p><blockquote><p><strong>&ldquo;A red car driving through snow.&rdquo;</strong></p></blockquote><p>The diffusion model is operating on an image representation.</p><p>But it needs to know what image it should generate.</p><p>So there are two representations:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>TEXT
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&#34;A red car driving through snow&#34;
+</span></span><span class=line><span class=cl>              ↓
+</span></span><span class=line><span class=cl>       text representation
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>IMAGE
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>noisy latent representation
+</span></span><span class=line><span class=cl>              ↓
+</span></span><span class=line><span class=cl>         image features
+</span></span></code></pre></div><p>We need a mechanism to connect them.</p><p>That mechanism is <strong>cross-attention</strong>.</p><hr><h1 id=16-first-understand-attention-in-text>16. First understand attention in text</h1><p>In a text Transformer, each token produces:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q = Query
+</span></span><span class=line><span class=cl>K = Key
+</span></span><span class=line><span class=cl>V = Value
+</span></span></code></pre></div><p>A useful mental model:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q = &#34;What information am I looking for?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>K = &#34;What kind of information do I contain?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>V = &#34;Here is the actual information.&#34;
+</span></span></code></pre></div><p>The model compares Queries against Keys:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q × K
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>relevance
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>attention weights
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>weighted Values
+</span></span></code></pre></div><p>So the core operation is approximately:</p><h1 id=attentionqkv>[
+Attention(Q,K,V)</h1><p>softmax
+\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)V
+]</p><p>In self-attention:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q ← text
+</span></span><span class=line><span class=cl>K ← text
+</span></span><span class=line><span class=cl>V ← text
+</span></span></code></pre></div><p>The text looks at itself.</p><hr><h1 id=17-self-attention-in-images>17. Self-attention in images</h1><p>Images can also use self-attention.</p><p>Now the representations are image features:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image feature 1
+</span></span><span class=line><span class=cl>Image feature 2
+</span></span><span class=line><span class=cl>Image feature 3
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>Each feature can ask:</p><blockquote><p>&ldquo;Which other image features are relevant to me?&rdquo;</p></blockquote><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q ← image
+</span></span><span class=line><span class=cl>K ← image
+</span></span><span class=line><span class=cl>V ← image
+</span></span></code></pre></div><p>This allows distant parts of the image to interact.</p><p>For example, information about one part of an object can influence another part.</p><hr><h1 id=18-cross-attention-connects-image-and-text>18. Cross-attention connects image and text</h1><p>Now we have something different.</p><p>The image representation has Queries.</p><p>The text representation provides Keys and Values.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                 TEXT
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>             K + V
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>                  ↓
+</span></span><span class=line><span class=cl>             Cross-attention
+</span></span><span class=line><span class=cl>                  ↑
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>                  Q
+</span></span><span class=line><span class=cl>                IMAGE
+</span></span></code></pre></div><p>Or:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q ← image
+</span></span><span class=line><span class=cl>K ← text
+</span></span><span class=line><span class=cl>V ← text
+</span></span></code></pre></div><p>The image representation is effectively asking:</p><blockquote><p><strong>&ldquo;Which parts of the text are relevant to what I&rsquo;m currently generating?&rdquo;</strong></p></blockquote><p>For example:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Prompt:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&#34;A red car driving through snow&#34;
+</span></span></code></pre></div><p>An image feature corresponding to the car might strongly attend to:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>red
+</span></span><span class=line><span class=cl>car
+</span></span></code></pre></div><p>Another feature might attend more strongly to:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>driving
+</span></span><span class=line><span class=cl>snow
+</span></span></code></pre></div><p>This provides the bridge between language and image generation.</p><hr><h1 id=19-why-q-k-and-v-are-useful-here>19. Why Q, K and V are useful here</h1><p>Think of a library.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query:
+</span></span><span class=line><span class=cl>&#34;What information am I looking for?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Key:
+</span></span><span class=line><span class=cl>&#34;What topic does this information belong to?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Value:
+</span></span><span class=line><span class=cl>&#34;Here is the actual information.&#34;
+</span></span></code></pre></div><p>For cross-attention:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image feature
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>compare against
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Text Keys
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>determine relevance
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>retrieve weighted Text Values
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>update image representation
+</span></span></code></pre></div><p>So cross-attention is not merely &ldquo;mixing text and image.&rdquo;</p><p>It is giving the image-generation process a mechanism to <strong>select relevant information from the text representation</strong>.</p><hr><h1 id=20-why-not-simply-concatenate-text-and-image>20. Why not simply concatenate text and image?</h1><p>Because the two modalities are different.</p><p>You have:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Text:
+</span></span><span class=line><span class=cl>[token representations...]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Image:
+</span></span><span class=line><span class=cl>[visual representations...]
+</span></span></code></pre></div><p>Cross-attention gives the model a structured way to say:</p><blockquote><p>&ldquo;For this visual feature, retrieve the relevant information from the text.&rdquo;</p></blockquote><p>That is much more useful than simply putting the two sequences next to one another.</p><hr><h1 id=21-encoder-vs-decoder--a-useful-detour-from-text-generation>21. Encoder vs decoder — a useful detour from text generation</h1><p>At this point, image generation brings us back to a distinction from language models.</p><p>There are three broad Transformer architectures:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Encoder-only
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>BERT
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Decoder-only
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>GPT / Llama / Mistral / StarCoder
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Encoder-decoder
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>T5 / FLAN-T5
+</span></span></code></pre></div><h3 id=encoder-only>Encoder-only</h3><p>BERT primarily exists to <strong>understand</strong> input.</p><p>It can use bidirectional attention:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>token ←→ token ←→ token ←→ token
+</span></span></code></pre></div><p>A token can see context on both sides.</p><h3 id=decoder-only>Decoder-only</h3><p>GPT-style models are designed for autoregressive generation:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>token 1
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 2
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 3
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 4
+</span></span></code></pre></div><p>Causal masking prevents a position from seeing future tokens.</p><h3 id=encoder-decoder>Encoder-decoder</h3><p>T5 separates the two jobs:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Input
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Encoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>rich representation
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Decoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Output
+</span></span></code></pre></div><p>The encoder understands the input.</p><p>The decoder generates the output.</p><hr><h1 id=22-but-doesnt-a-decoder-only-model-still-encode-the-prompt>22. But doesn&rsquo;t a decoder-only model still encode the prompt?</h1><p>Absolutely.</p><p>&ldquo;Decoder-only&rdquo; does <strong>not</strong> mean:</p><blockquote><p>&ldquo;There is no encoding.&rdquo;</p></blockquote><p>There is still:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Token ID
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>Embedding
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>Transformer layers
+</span></span><span class=line><span class=cl>   ↓
+</span></span><span class=line><span class=cl>Contextual representation
+</span></span></code></pre></div><p>The distinction is that there is <strong>no separate encoder network</strong>.</p><p>The decoder layers themselves progressively construct contextual representations while maintaining causal masking.</p><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Decoder-only:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Prompt
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Token embeddings
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Transformer layer
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Transformer layer
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Contextual representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Next-token prediction
+</span></span></code></pre></div><p>Whereas T5 is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Prompt
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Separate encoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Encoded representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Separate decoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Output
+</span></span></code></pre></div><p>This distinction became important when comparing language generation with image generation.</p><hr><h1 id=23-why-not-make-the-decoder-bidirectional>23. Why not make the decoder bidirectional?</h1><p>This led to another question.</p><p>Suppose we&rsquo;re generating:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>add</span><span class=p>(</span><span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=err>???</span>
+</span></span></code></pre></div><p>An autoregressive model must generate:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>return
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>a
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>+
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>b
+</span></span></code></pre></div><p>One token at a time.</p><p>But what if the model could see both sides?</p><p>If the complete sequence were already:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>add</span><span class=p>(</span><span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span>
+</span></span></code></pre></div><p>then a bidirectional model could allow:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>def ←→ add ←→ (...) ←→ return ←→ a ←→ + ←→ b
+</span></span></code></pre></div><p>Every token could see every other token.</p><p>This provides richer contextual information.</p><p>So why not always generate this way?</p><p>Because when generating from scratch, the future does not exist yet.</p><p>If we have:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>add</span><span class=p>(</span><span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=p>[</span><span class=n>MASK</span><span class=p>]</span>
+</span></span></code></pre></div><p>there is no future content to look at.</p><hr><h1 id=24-but-bidirectional-generation-can-be-useful>24. But bidirectional generation can be useful</h1><p>Suppose we aren&rsquo;t generating an entire sequence from nothing.</p><p>Suppose we have:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>calculate_total</span><span class=p>(</span><span class=n>items</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>total</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>items</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=p>[</span><span class=n>MASK</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>total</span>
+</span></span></code></pre></div><p>Now the model has context <strong>before and after the missing piece</strong>.</p><p>It can use both:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>BEFORE
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>for item in items:
+</span></span><span class=line><span class=cl>    [MASK]
+</span></span><span class=line><span class=cl>return total
+</span></span><span class=line><span class=cl>    ↑
+</span></span><span class=line><span class=cl>AFTER
+</span></span></code></pre></div><p>This is a much more constrained problem.</p><p>The model doesn&rsquo;t have to invent the entire program.</p><p>It needs to fill a hole.</p><p>This is why bidirectional/masked approaches are useful for things like:</p><ul><li>fill-in-the-blank</li><li>code infilling</li><li>text editing</li><li>rewriting</li><li>some translation approaches</li></ul><p>The more structure already exists, the more useful bidirectional context can become.</p><hr><h1 id=25-the-fundamental-trade-off>25. The fundamental trade-off</h1><p>This creates a useful comparison.</p><h3 id=autoregressive-generation>Autoregressive generation</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Prompt
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 1
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 2
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 3
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>token 4
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>Each decision becomes context for the next.</p><p>Advantages:</p><ul><li>naturally coherent sequential generation</li><li>excellent for open-ended generation</li><li>simple training objective</li><li>each decision conditions the next</li></ul><p>Disadvantage:</p><ul><li>inherently sequential generation</li><li>latency grows with output length</li></ul><h3 id=bidirectional--non-autoregressive-style-generation>Bidirectional / non-autoregressive-style generation</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Existing context
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>[MASK] [MASK] [MASK] [MASK]
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>generate/refine in parallel
+</span></span></code></pre></div><p>Potential advantage:</p><ul><li>many positions can be processed together</li><li>potentially much faster</li></ul><p>But:</p><ul><li>simultaneously generated tokens have weaker mutual conditioning</li><li>maintaining global semantic consistency becomes harder</li><li>generation requires a different procedure</li></ul><p>This is one reason autoregressive language generation remains so powerful despite its sequential nature.</p><hr><h1 id=26-and-this-explains-something-about-images>26. And this explains something about images</h1><p>Images don&rsquo;t have the same obvious left-to-right sequential structure as text.</p><p>Imagine:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>[ ][ ][ ][ ]
+</span></span><span class=line><span class=cl>[ ][ ][ ][ ]
+</span></span><span class=line><span class=cl>[ ][ ][ ][ ]
+</span></span><span class=line><span class=cl>[ ][ ][ ][ ]
+</span></span></code></pre></div><p>It is perfectly reasonable for all regions to influence one another.</p><p>A diffusion model doesn&rsquo;t have to say:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>region 1
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>region 2
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>region 3
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>Instead, it can iteratively refine the <strong>whole representation</strong>.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Noise
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>rough global structure
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>better structure
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>better details
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>final image
+</span></span></code></pre></div><p>This is one of the deep reasons diffusion is such a natural approach for image generation.</p><hr><h1 id=27-diffusion-is-not-simply-bidirectional-text-generation>27. Diffusion is not simply &ldquo;bidirectional text generation&rdquo;</h1><p>This distinction is important.</p><p>Diffusion does <strong>not</strong> mean:</p><blockquote><p>&ldquo;We made a Transformer bidirectional and now it generates images.&rdquo;</p></blockquote><p>The underlying generation mechanism is different.</p><p>Diffusion starts with noise and performs a sequence of denoising/refinement steps.</p><p>The model learns a transformation related to the direction in which the data distribution becomes more likely.</p><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Autoregressive language:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>previous sequence
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>next token
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>next token
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>next token
+</span></span></code></pre></div><p>versus:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Diffusion:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>random noise
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>denoise/refine
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>denoise/refine
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>denoise/refine
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>image
+</span></span></code></pre></div><p>Both are generative, but they exploit very different structures.</p><hr><h1 id=28-why-latent-diffusion-makes-the-whole-thing-practical>28. Why latent diffusion makes the whole thing practical</h1><p>Now combine everything.</p><p>Raw pixel-space diffusion:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>millions of pixel values
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>diffusion
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>millions of pixel values
+</span></span></code></pre></div><p>Latent diffusion:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Encoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>small latent representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Diffusion / U-Net
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>small latent representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Decoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Image
+</span></span></code></pre></div><p>The expensive part happens in the smaller space.</p><p>And the text prompt can condition the process through cross-attention:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                         TEXT
+</span></span><span class=line><span class=cl>                          ↓
+</span></span><span class=line><span class=cl>                    Text Encoder
+</span></span><span class=line><span class=cl>                          ↓
+</span></span><span class=line><span class=cl>                       K + V
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                          ↓
+</span></span><span class=line><span class=cl>                    Cross-Attention
+</span></span><span class=line><span class=cl>                          ↑
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                       Q
+</span></span><span class=line><span class=cl>                          ↑
+</span></span><span class=line><span class=cl>Image → Image Encoder → Latent → U-Net
+</span></span><span class=line><span class=cl>                                      ↓
+</span></span><span class=line><span class=cl>                                  denoising
+</span></span><span class=line><span class=cl>                                      ↓
+</span></span><span class=line><span class=cl>                                   Latent
+</span></span><span class=line><span class=cl>                                      ↓
+</span></span><span class=line><span class=cl>                                  Decoder
+</span></span><span class=line><span class=cl>                                      ↓
+</span></span><span class=line><span class=cl>                                    Image
+</span></span></code></pre></div><p>This is the mental model I was looking for.</p><hr><h1 id=29-putting-the-entire-pipeline-together>29. Putting the entire pipeline together</h1><p>A simplified text-to-image generation pipeline now looks like this:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                TEXT PROMPT
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>              Tokenization
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>               Text Encoder
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>              Text representation
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                K + V
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>Random noise → Latent representation
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>                   U-Net
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>              Cross-attention
+</span></span><span class=line><span class=cl>                     ↑
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>             Text representation
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>             Predict / remove noise
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>          Repeat denoising steps
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>             Final latent
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>                Image Decoder
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>               Generated Image
+</span></span></code></pre></div><p>There are additional components and implementation details in real systems, but this is enough to connect the major pieces.</p><hr><h1 id=30-the-connection-back-to-language-models>30. The connection back to language models</h1><p>The comparison is useful because the two systems are solving related problems differently.</p><h3 id=language-generation>Language generation</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Text
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Tokens
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Embeddings
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Transformer
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Causal attention
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Next-token probabilities
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Choose token
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Repeat
+</span></span></code></pre></div><p>The fundamental unit is the <strong>token</strong>.</p><p>The model generates a sequence.</p><hr><h3 id=image-generation>Image generation</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Text prompt
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Text representation
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Condition diffusion process
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Random latent
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>U-Net / denoising network
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Cross-attention with text
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Refined latent
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Repeat
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Image decoder
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Image
+</span></span></code></pre></div><p>The fundamental working representation is a <strong>continuous latent space</strong>, not a sequence of millions of individual RGB values.</p><p>The model doesn&rsquo;t have to commit to pixel 1 before pixel 2.</p><p>It can progressively refine a whole representation.</p><hr><h1 id=31-the-surprising-part>31. The surprising part</h1><p>The thing that initially seemed crazy was the physical intuition behind diffusion:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Image
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>destroy it with noise
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>pure randomness
+</span></span></code></pre></div><p>Then learn:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>pure randomness
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>recover structure
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>recover more structure
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>recover details
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>image
+</span></span></code></pre></div><p>The model isn&rsquo;t memorizing one image and playing it backward.</p><p>It is learning the statistical structure of the data distribution well enough that starting from random noise, repeated denoising steps can move a representation toward something that looks like a valid sample from that distribution.</p><p>That is the part that makes diffusion so fascinating.</p><p>A physical process of <strong>adding randomness</strong> becomes the foundation for a computational process of <strong>learning how to reverse that randomness</strong>.</p><hr><h1 id=32-the-mental-map-to-keep>32. The mental map to keep</h1><p>I don&rsquo;t need to remember every DDPM coefficient, every PyTorch tensor operation, or every U-Net implementation detail.</p><p>The useful map is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>IMAGE GENERATION
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Raw image
+</span></span><span class=line><span class=cl>│     └── pixels / RGB
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Representation
+</span></span><span class=line><span class=cl>│     └── Encoder → latent space
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Diffusion
+</span></span><span class=line><span class=cl>│     ├── add noise during training
+</span></span><span class=line><span class=cl>│     └── learn to reverse / denoise
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── DDPM
+</span></span><span class=line><span class=cl>│     └── foundational denoising formulation
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── U-Net
+</span></span><span class=line><span class=cl>│     └── predicts the noise / denoising direction
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Attention
+</span></span><span class=line><span class=cl>│     ├── self-attention
+</span></span><span class=line><span class=cl>│     │     └── image ↔ image
+</span></span><span class=line><span class=cl>│     │
+</span></span><span class=line><span class=cl>│     └── cross-attention
+</span></span><span class=line><span class=cl>│           └── image ↔ text
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Latent Diffusion
+</span></span><span class=line><span class=cl>│     └── perform diffusion in compressed space
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└── Stable Diffusion
+</span></span><span class=line><span class=cl>      └── practical family built around latent diffusion
+</span></span></code></pre></div><p>And beside it:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>TEXT GENERATION
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Tokenizer
+</span></span><span class=line><span class=cl>│     └── text → token IDs
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Embedding
+</span></span><span class=line><span class=cl>│     └── token IDs → vectors
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Transformer
+</span></span><span class=line><span class=cl>│     ├── self-attention
+</span></span><span class=line><span class=cl>│     └── contextual representations
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Decoder-only
+</span></span><span class=line><span class=cl>│     └── no separate encoder
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Causal masking
+</span></span><span class=line><span class=cl>│     └── don&#39;t see future tokens
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└── Autoregressive generation
+</span></span><span class=line><span class=cl>      └── token → token → token → ...
+</span></span></code></pre></div><p>The two worlds are different, but they share a lot of machinery:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                TRANSFORMERS / NEURAL NETWORKS
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>              ┌──────────┴──────────┐
+</span></span><span class=line><span class=cl>              ↓                     ↓
+</span></span><span class=line><span class=cl>           TEXT                  IMAGE
+</span></span><span class=line><span class=cl>              │                     │
+</span></span><span class=line><span class=cl>       tokens / embeddings     visual / latent features
+</span></span><span class=line><span class=cl>              │                     │
+</span></span><span class=line><span class=cl>       attention mechanisms    attention mechanisms
+</span></span><span class=line><span class=cl>              │                     │
+</span></span><span class=line><span class=cl>      autoregressive           diffusion
+</span></span><span class=line><span class=cl>      generation               generation
+</span></span><span class=line><span class=cl>              │                     │
+</span></span><span class=line><span class=cl>         next token              image
+</span></span></code></pre></div><p>The key realization is that <strong>there isn&rsquo;t one universal way to make a generative model</strong>.</p><p>Text happens to have a strong sequential structure, making autoregressive generation extraordinarily effective.</p><p>Images have enormous spatial structure and don&rsquo;t naturally want to be generated one pixel after another, making latent representations and iterative diffusion a much more practical approach.</p><p>And the deeper common idea underneath both is the same:</p><blockquote><p><strong>Learn a representation of the data, learn the structure of that representation, and then learn a way to generate new points that fit that learned structure.</strong></p></blockquote></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>

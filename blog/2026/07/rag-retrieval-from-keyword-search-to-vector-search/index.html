@@ -1,0 +1,557 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - RAG Retrieval: From Keyword Search to Vector Search</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">RAG Retrieval: From Keyword Search to Vector Search</h1><p class=blog-post-info>Posted: <time>2026-07-22</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Categories:
+<a class=blog-taxonomy-info href=/categories/tech>tech</a></span>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/genai>GenAI</a>, <a class=blog-taxonomy-info href=/tags/llms>LLMs</a>, <a class=blog-taxonomy-info href=/tags/rags>RAGs</a></span></p><div class=blog-post-content><blockquote><p>Fully AI generated notes.</p></blockquote><hr><h2 id=1-why-does-rag-exist>1. Why Does RAG Exist?</h2><p>An LLM primarily carries knowledge in its <strong>parameters</strong>.</p><p>During training:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Training Data
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Model Training
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Weights / Parameters
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Parametric Knowledge
+</span></span></code></pre></div><p>Once trained, asking the model a question does not normally cause it to search through its original training documents.</p><p>The answer is generated from what has been learned into the model&rsquo;s parameters.</p><p>That creates obvious limitations:</p><ul><li>knowledge can become stale</li><li>private organizational data was never part of training</li><li>the model may not know niche information</li><li>updating knowledge by retraining is expensive</li><li>generated answers aren&rsquo;t inherently grounded in a specific source</li></ul><p>RAG — <strong>Retrieval-Augmented Generation</strong> — adds external knowledge.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                  USER QUERY
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                       ▼
+</span></span><span class=line><span class=cl>                    RETRIEVER
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                Search knowledge
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                       ▼
+</span></span><span class=line><span class=cl>                Relevant documents
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                       ▼
+</span></span><span class=line><span class=cl>             Query + retrieved context
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                       ▼
+</span></span><span class=line><span class=cl>                      LLM
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>                       ▼
+</span></span><span class=line><span class=cl>                    ANSWER
+</span></span></code></pre></div><p>This creates a useful separation:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>LLM Parameters
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Parametric Memory
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>External Documents
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Non-Parametric / External Memory
+</span></span></code></pre></div><p>The interesting problem then becomes:</p><blockquote><p><strong>Given a query and potentially millions of documents, how do we find the right information?</strong></p></blockquote><p>That takes us into <strong>information retrieval</strong>.</p><hr><h1 id=2-the-simplest-retrieval-word-matching>2. The Simplest Retrieval: Word Matching</h1><p>Imagine a corpus:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>D1: Java supports concurrency
+</span></span><span class=line><span class=cl>D2: Python is a programming language
+</span></span><span class=line><span class=cl>D3: Java virtual threads improve concurrency
+</span></span></code></pre></div><p>And the query:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;Java concurrency&#34;
+</span></span></code></pre></div><p>The simplest idea is:</p><blockquote><p>Find documents containing the query words.</p></blockquote><p>This leads to <strong>Bag of Words</strong> representations.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Vocabulary:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Java
+</span></span><span class=line><span class=cl>Python
+</span></span><span class=line><span class=cl>concurrency
+</span></span><span class=line><span class=cl>virtual
+</span></span><span class=line><span class=cl>threads
+</span></span><span class=line><span class=cl>programming
+</span></span></code></pre></div><p>A document can be represented by which vocabulary terms occur within it.</p><p>Because a document contains only a tiny fraction of the entire vocabulary, most dimensions are zero.</p><p>Hence:</p><blockquote><p><strong>Sparse representation</strong></p></blockquote><p>And retrieval based on these representations becomes:</p><blockquote><p><strong>Sparse retrieval</strong></p></blockquote><hr><h1 id=3-term-frequency--tf>3. Term Frequency — TF</h1><p>Not every word appearing in a document is equally important.</p><p>One simple signal is:</p><blockquote><p><strong>How often does this term occur inside this document?</strong></p></blockquote><p>That&rsquo;s <strong>Term Frequency (TF)</strong>.</p><p>Suppose:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>D1:
+</span></span><span class=line><span class=cl>&#34;Java Java Java concurrency programming&#34;
+</span></span></code></pre></div><p>Then:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>TF(Java)        = high
+</span></span><span class=line><span class=cl>TF(concurrency) = lower
+</span></span></code></pre></div><p>TF answers:</p><blockquote><p><strong>How important/frequent is this term within this particular document?</strong></p></blockquote><p>But TF alone has a problem.</p><p>Words appearing everywhere aren&rsquo;t necessarily useful for identifying relevant documents.</p><hr><h1 id=4-inverse-document-frequency--idf>4. Inverse Document Frequency — IDF</h1><p>Suppose our corpus contains 1 million documents.</p><p>If:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;programming&#34;
+</span></span></code></pre></div><p>appears in 800,000 documents, seeing it tells us relatively little.</p><p>But:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;virtual-thread-pinning&#34;
+</span></span></code></pre></div><p>might occur in only 500 documents.</p><p>That term is much more discriminative.</p><p>This gives us <strong>Inverse Document Frequency (IDF)</strong>.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Appears in many documents
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Common term
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Low IDF
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Appears in few documents
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Rare term
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>High IDF
+</span></span></code></pre></div><p>A common formulation is:</p><p>[
+IDF(t)=\log\frac{N}{df(t)}
+]</p><p>where:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>N     = number of documents
+</span></span><span class=line><span class=cl>df(t) = number of documents containing term t
+</span></span></code></pre></div><p>A critical distinction:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>TF
+</span></span><span class=line><span class=cl>↓
+</span></span><span class=line><span class=cl>How many times does the term occur
+</span></span><span class=line><span class=cl>inside THIS document?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>DF
+</span></span><span class=line><span class=cl>↓
+</span></span><span class=line><span class=cl>How many DOCUMENTS contain the term?
+</span></span></code></pre></div><p>If:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>D1 = &#34;Java Java Java Java&#34;
+</span></span></code></pre></div><p>then:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>TF(Java, D1) = 4
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>but
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>DF contribution = 1 document
+</span></span></code></pre></div><p>We don&rsquo;t count the same document four times when calculating document frequency.</p><hr><h1 id=5-tf-idf>5. TF-IDF</h1><p>Now combine the two ideas:</p><p>[
+TF\text{-}IDF = TF \times IDF
+]</p><p>A term becomes important when it is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Frequent in THIS document
+</span></span><span class=line><span class=cl>           +
+</span></span><span class=line><span class=cl>Rare across ALL documents
+</span></span></code></pre></div><p>This provides a much better relevance signal than raw word counts.</p><p>The evolution so far:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Bag of Words
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Term Frequency
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Inverse Document Frequency
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>TF-IDF
+</span></span></code></pre></div><hr><h1 id=6-bm25>6. BM25</h1><p>BM25 builds upon the same general lexical-retrieval intuition.</p><p>Suppose:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query:
+</span></span><span class=line><span class=cl>&#34;Java virtual threads&#34;
+</span></span></code></pre></div><p>For a document, BM25 effectively evaluates the contribution of the query terms:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>score(Java)
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>score(virtual)
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>score(threads)
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Document relevance score
+</span></span></code></pre></div><p>But BM25 improves upon simple TF-IDF in important ways.</p><h3 id=term-frequency-saturation>Term-frequency saturation</h3><p>Suppose:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>D1:
+</span></span><span class=line><span class=cl>&#34;Java Java Java Java Java Java Java...&#34;
+</span></span></code></pre></div><p>Seven occurrences should not necessarily make the document seven times more relevant than one occurrence.</p><p>BM25 makes additional occurrences progressively less valuable.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Relevance
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   │            _________
+</span></span><span class=line><span class=cl>   │         __/
+</span></span><span class=line><span class=cl>   │      __/
+</span></span><span class=line><span class=cl>   │   __/
+</span></span><span class=line><span class=cl>   │__/
+</span></span><span class=line><span class=cl>   └──────────────────────
+</span></span><span class=line><span class=cl>        Term Frequency
+</span></span></code></pre></div><h3 id=document-length-normalization>Document-length normalization</h3><p>A 10,000-word document naturally has more opportunities to contain a term than a 100-word document.</p><p>BM25 accounts for document length.</p><h3 id=rare-terms-remain-important>Rare terms remain important</h3><p>BM25 also incorporates an IDF-like notion.</p><p>So a rare query term can contribute more relevance than an extremely common one.</p><hr><h1 id=7-sparse-retrieval>7. Sparse Retrieval</h1><p>TF-IDF and BM25 belong to the <strong>sparse retrieval</strong> family.</p><p>The mental model:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query:
+</span></span><span class=line><span class=cl>&#34;Java concurrency&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Document:
+</span></span><span class=line><span class=cl>&#34;Java concurrency with virtual threads&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Strong lexical overlap
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>High relevance
+</span></span></code></pre></div><p>Sparse retrieval is particularly good when exact terminology matters:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Product IDs
+</span></span><span class=line><span class=cl>Error codes
+</span></span><span class=line><span class=cl>Names
+</span></span><span class=line><span class=cl>Technical terms
+</span></span><span class=line><span class=cl>Acronyms
+</span></span><span class=line><span class=cl>Exact phrases
+</span></span></code></pre></div><p>But there is an obvious weakness.</p><p>Consider:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query:
+</span></span><span class=line><span class=cl>&#34;How do I run multiple tasks simultaneously in Java?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Document:
+</span></span><span class=line><span class=cl>&#34;Java concurrency using virtual threads&#34;
+</span></span></code></pre></div><p>The meanings are highly related.</p><p>But the words don&rsquo;t overlap very much.</p><p>This takes us to <strong>dense retrieval</strong>.</p><hr><h1 id=8-dense-retrieval>8. Dense Retrieval</h1><p>Instead of representing text using vocabulary dimensions, an embedding model converts text into a dense numerical vector.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;Java concurrency&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Embedding Model
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>[0.21, -0.81, 0.17, 0.42, ...]
+</span></span></code></pre></div><p>Likewise:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;Executing multiple tasks simultaneously&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Embedding Model
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>[0.19, -0.79, 0.21, 0.39, ...]
+</span></span></code></pre></div><p>These vectors can be close even though the original text uses different words.</p><p>Now retrieval asks:</p><blockquote><p><strong>Which document vectors are closest to the query vector?</strong></p></blockquote><p>rather than:</p><blockquote><p>Which documents contain the same words?</p></blockquote><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>SPARSE RETRIEVAL
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Words
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Word overlap
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Relevant documents
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>DENSE RETRIEVAL
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Embedding
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Vector similarity
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Semantically similar documents
+</span></span></code></pre></div><hr><h1 id=9-cross-encoder-retrieval>9. Cross-Encoder Retrieval</h1><p>One way to calculate relevance is to give the model both the query and document together.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query ───────┐
+</span></span><span class=line><span class=cl>             │
+</span></span><span class=line><span class=cl>             ├── Transformer
+</span></span><span class=line><span class=cl>             │        ↓
+</span></span><span class=line><span class=cl>Document ────┘   Relevance Score
+</span></span></code></pre></div><p>Because the model sees both simultaneously, it can model very detailed interactions between them.</p><p>This can provide excellent relevance scoring.</p><p>But imagine having:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000 documents
+</span></span></code></pre></div><p>For every query:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query + D1 → Model
+</span></span><span class=line><span class=cl>Query + D2 → Model
+</span></span><span class=line><span class=cl>Query + D3 → Model
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Query + D10,000,000 → Model
+</span></span></code></pre></div><p>That is far too expensive for first-stage retrieval.</p><hr><h1 id=10-bi-encoder--dual-encoder-retrieval>10. Bi-Encoder / Dual-Encoder Retrieval</h1><p>Instead, encode the query and documents independently.</p><p>Documents can be embedded ahead of time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>D1 → Encoder → Vector 1
+</span></span><span class=line><span class=cl>D2 → Encoder → Vector 2
+</span></span><span class=line><span class=cl>D3 → Encoder → Vector 3
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>Store those vectors.</p><p>Then at query time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Encoder
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Query Vector
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Find nearby document vectors
+</span></span></code></pre></div><p>This is dramatically more scalable.</p><p>The trade-off:</p><blockquote><p>Query and document don&rsquo;t interact deeply while their representations are being produced.</p></blockquote><p>Their interaction occurs through vector similarity afterward.</p><p>This can lose some fine-grained relevance information compared with a cross-encoder.</p><hr><h1 id=11-colbert--a-middle-ground>11. ColBERT — A Middle Ground</h1><p>A normal bi-encoder might reduce an entire query to:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query → ONE vector
+</span></span></code></pre></div><p>and an entire document to:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Document → ONE vector
+</span></span></code></pre></div><p>ColBERT retains token-level representations.</p><p>For:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query:
+</span></span><span class=line><span class=cl>&#34;Java concurrency&#34;
+</span></span></code></pre></div><p>we might conceptually retain:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Java        → vector Q1
+</span></span><span class=line><span class=cl>concurrency → vector Q2
+</span></span></code></pre></div><p>And for a document:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;Java supports concurrent programming&#34;
+</span></span></code></pre></div><p>retain:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Java        → D1
+</span></span><span class=line><span class=cl>supports    → D2
+</span></span><span class=line><span class=cl>concurrent  → D3
+</span></span><span class=line><span class=cl>programming → D4
+</span></span></code></pre></div><p>For each query-token representation, ColBERT finds the best matching document-token representation.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Java ─────────────→ Java
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>concurrency ──────→ concurrent
+</span></span></code></pre></div><p>This <strong>MaxSim</strong> interaction preserves more fine-grained matching than collapsing everything into a single vector.</p><p>The trade-off is increased storage and retrieval complexity.</p><hr><h1 id=12-the-scaling-problem>12. The Scaling Problem</h1><p>Dense retrieval now gives us another problem.</p><p>Suppose we have:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000 document vectors
+</span></span></code></pre></div><p>A query arrives.</p><p>Naively:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query Vector
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Compare with D1
+</span></span><span class=line><span class=cl>Compare with D2
+</span></span><span class=line><span class=cl>Compare with D3
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Compare with D10,000,000
+</span></span></code></pre></div><p>That&rsquo;s an exhaustive nearest-neighbor search.</p><p>Conceptually:</p><p>[
+O(N)
+]</p><p>As the vector collection becomes huge, comparing against everything becomes expensive.</p><p>This leads to:</p><h1 id=approximate-nearest-neighbor-search--ann>Approximate Nearest Neighbor Search — ANN</h1><p>Instead of demanding the mathematically exact nearest neighbors:</p><blockquote><p><strong>Find very likely nearest neighbors much faster.</strong></p></blockquote><p>This trades some retrieval recall for enormous improvements in latency and scalability.</p><p>Three important names appear here:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>ANN
+</span></span><span class=line><span class=cl> │
+</span></span><span class=line><span class=cl> ├── IVF
+</span></span><span class=line><span class=cl> ├── HNSW
+</span></span><span class=line><span class=cl> └── PQ
+</span></span></code></pre></div><p>But they solve somewhat different problems.</p><hr><h1 id=13-ivf--reduce-the-search-space>13. IVF — Reduce the Search Space</h1><p><strong>IVF — Inverted File Index</strong></p><p>The core idea:</p><blockquote><p>Don&rsquo;t search the entire vector space. First determine which regions are promising.</p></blockquote><p>During indexing, run something like K-means over the document vectors.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                   VECTOR SPACE
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        Cluster A                Cluster B
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>       • • • •                    • •
+</span></span><span class=line><span class=cl>     • • • • •                  • • •
+</span></span><span class=line><span class=cl>        • •                      • •
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                    Cluster C
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                   • • •
+</span></span><span class=line><span class=cl>                 • • • • •
+</span></span><span class=line><span class=cl>                   • •
+</span></span></code></pre></div><p>Each cluster has a centroid.</p><p>Documents are assigned to nearby clusters.</p><p>At query time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Find nearby cluster centroids
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Search only those clusters
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Find nearest document vectors
+</span></span></code></pre></div><p>Instead of:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Search 10,000,000 vectors
+</span></span></code></pre></div><p>we might search only a fraction of them.</p><p>The key mental model:</p><blockquote><p><strong>IVF reduces WHERE we search.</strong></p></blockquote><hr><h1 id=14-hnsw--navigate-instead-of-scan>14. HNSW — Navigate Instead of Scan</h1><p><strong>HNSW — Hierarchical Navigable Small World</strong></p><p>HNSW takes a completely different approach.</p><p>Vectors become nodes in a graph.</p><p>Nearby vectors have graph connections.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>A ───── B
+</span></span><span class=line><span class=cl>│       │
+</span></span><span class=line><span class=cl>│       │
+</span></span><span class=line><span class=cl>C ───── D ───── E
+</span></span><span class=line><span class=cl>         \
+</span></span><span class=line><span class=cl>          F
+</span></span></code></pre></div><p>Instead of scanning every vector, search navigates through this graph toward increasingly promising neighbors.</p><p>HNSW adds hierarchical layers.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Sparse upper layer
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Fast large jumps
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>More detailed layer
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Smaller jumps
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Dense bottom layer
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Nearest neighbors
+</span></span></code></pre></div><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Start somewhere
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Move toward query
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Get closer
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Descend layer
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Refine search
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Nearest candidates
+</span></span></code></pre></div><p>The key mental model:</p><blockquote><p><strong>HNSW reduces search work by navigating a graph rather than scanning the whole vector collection.</strong></p></blockquote><hr><h1 id=15-product-quantization--reduce-storage>15. Product Quantization — Reduce Storage</h1><p>Now consider another problem.</p><p>Suppose there are:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000 vectors
+</span></span></code></pre></div><p>Each vector has:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024 dimensions
+</span></span></code></pre></div><p>And each dimension is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>float32 = 4 bytes
+</span></span></code></pre></div><p>One vector therefore needs:</p><p>[
+1024 \times 4 = 4096 \text{ bytes}
+]</p><p>For 10 million vectors:</p><h1 id=10000000-times-4096>[
+10,000,000 \times 4096</h1><p>40.96\text{ GB}
+]</p><p>That&rsquo;s a substantial amount of memory just for the vectors.</p><p>This is where <strong>Product Quantization (PQ)</strong> enters.</p><p>The important idea—not the implementation details—is:</p><blockquote><p><strong>Approximate large vectors using compact codes rather than storing every floating-point value.</strong></p></blockquote><p>Suppose:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024-D vector
+</span></span></code></pre></div><p>is split into:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 sub-vectors
+</span></span></code></pre></div><p>Each sub-vector contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024 / 16 = 64 dimensions
+</span></span></code></pre></div><p>For each sub-vector position, K-means learns representative vectors called <strong>centroids</strong>.</p><p>Then instead of storing:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>[0.23, 0.91, -0.72, 0.14, ...]
+</span></span></code></pre></div><p>we store:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;this sub-vector looks most like centroid #17&#34;
+</span></span></code></pre></div><p>Across 16 sub-vectors, the original vector becomes something conceptually like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>[17, 203, 4, 91, 7, ..., 28]
+</span></span></code></pre></div><p>These centroid IDs are the <strong>PQ codes</strong>.</p><p>If each subspace has:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256 possible centroids
+</span></span></code></pre></div><p>then a centroid ID requires:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>8 bits = 1 byte
+</span></span></code></pre></div><p>Therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 sub-vectors
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>1 byte
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>16 bytes/vector
+</span></span></code></pre></div><p>instead of:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>4096 bytes/vector
+</span></span></code></pre></div><p>For the example above:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Original vectors:
+</span></span><span class=line><span class=cl>≈ 40.96 GB
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PQ codes:
+</span></span><span class=line><span class=cl>≈ 160 MB
+</span></span></code></pre></div><p>That&rsquo;s an enormous reduction.</p><p>But information has been discarded.</p><p>So distance calculations become approximate.</p><p>The key mental model:</p><blockquote><p><strong>PQ reduces HOW MUCH vector data we store and process, at the cost of precision.</strong></p></blockquote><p>The details of codebooks, lookup tables, asymmetric distance computation and exact scoring can be revisited when vector-database internals become important.</p><hr><h1 id=16-ivf-vs-hnsw-vs-pq>16. IVF vs HNSW vs PQ</h1><p>This distinction is worth remembering.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>IVF
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Partition the vector space
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Search fewer regions
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>HNSW
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Build a navigable graph
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Reach nearby vectors quickly
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PQ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Compress vectors
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Store and compare cheaper approximations
+</span></span></code></pre></div><p>So they aren&rsquo;t simply three competing versions of the same algorithm.</p><p>They attack different scaling problems.</p><p>And techniques can be combined.</p><p>For example:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>IVF
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Find promising regions
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>+
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PQ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Store vectors compactly
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>IVF-PQ
+</span></span></code></pre></div><hr><h1 id=17-retrieval-accuracy-vs-efficiency>17. Retrieval Accuracy vs Efficiency</h1><p>Approximate retrieval introduces an important system-design trade-off.</p><p>Exact search:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>High accuracy
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>High compute / memory cost
+</span></span></code></pre></div><p>Approximate search:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Much faster / smaller
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Potentially miss some good candidates
+</span></span></code></pre></div><p>This is why retrieval systems often care about metrics such as <strong>Recall@K</strong>.</p><p>Suppose exact nearest-neighbor search identifies the true best 100 documents.</p><p>Approximate retrieval finds 94 of them.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Recall@100 = 94%
+</span></span></code></pre></div><p>Whether that&rsquo;s acceptable depends on the application.</p><p>For many RAG systems, first-stage retrieval doesn&rsquo;t need perfect ordering.</p><p>It needs to ensure:</p><blockquote><p><strong>The genuinely useful documents survive into the candidate set.</strong></p></blockquote><hr><h1 id=18-reranking>18. Reranking</h1><p>This brings us back to the cross-encoder.</p><p>Earlier, cross-encoders were too expensive:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query × 10,000,000 documents
+</span></span></code></pre></div><p>But what if dense retrieval first reduces the candidates?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000 documents
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>ANN retrieval
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Top 100 candidates
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Cross-encoder
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Top 10
+</span></span></code></pre></div><p>Now expensive query-document interaction becomes practical.</p><p>This creates a common retrieval architecture:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                 QUERY
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>            Fast Retriever
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>          millions of docs
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>            Top Candidates
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>               Reranker
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>          deeper Q-D interaction
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>            Best Documents
+</span></span></code></pre></div><p>The first stage optimizes:</p><blockquote><p><strong>Recall + speed</strong></p></blockquote><p>The second stage optimizes:</p><blockquote><p><strong>Precision</strong></p></blockquote><hr><h1 id=19-sparse--dense--hybrid-retrieval>19. Sparse + Dense = Hybrid Retrieval</h1><p>Sparse and dense retrieval have complementary strengths.</p><p>Consider:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;ERR_JAVA_4821&#34;
+</span></span></code></pre></div><p>An embedding model may not understand this identifier particularly well.</p><p>BM25 can match it exactly.</p><p>Conversely:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;How do I execute many lightweight tasks simultaneously?&#34;
+</span></span></code></pre></div><p>may semantically match:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;Java virtual thread concurrency&#34;
+</span></span></code></pre></div><p>even with weak lexical overlap.</p><p>Dense retrieval is useful here.</p><p>Therefore modern RAG systems frequently combine both.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                         QUERY
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>              ┌────────────┴────────────┐
+</span></span><span class=line><span class=cl>              │                         │
+</span></span><span class=line><span class=cl>              ▼                         ▼
+</span></span><span class=line><span class=cl>        Sparse Search              Dense Search
+</span></span><span class=line><span class=cl>            BM25                   Embeddings
+</span></span><span class=line><span class=cl>              │                         │
+</span></span><span class=line><span class=cl>              ▼                         ▼
+</span></span><span class=line><span class=cl>        Exact lexical              Semantic
+</span></span><span class=line><span class=cl>          matches                   matches
+</span></span><span class=line><span class=cl>              │                         │
+</span></span><span class=line><span class=cl>              └────────────┬────────────┘
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    Merge Candidates
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                       Reranker
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    Best Documents
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                          LLM
+</span></span></code></pre></div><p>This is <strong>hybrid retrieval</strong>.</p><hr><h1 id=20-retrieval-and-generation-are-separate-problems>20. Retrieval and Generation Are Separate Problems</h1><p>One of the most useful RAG distinctions is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                  RAG
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>         ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>         │                   │
+</span></span><span class=line><span class=cl>     RETRIEVAL           GENERATION
+</span></span><span class=line><span class=cl>         │                   │
+</span></span><span class=line><span class=cl>&#34;What information       &#34;What should I
+</span></span><span class=line><span class=cl> should the model        say using that
+</span></span><span class=line><span class=cl> receive?&#34;               information?&#34;
+</span></span></code></pre></div><p>A bad RAG answer does <strong>not</strong> automatically mean the LLM failed.</p><p>Suppose:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>User Query
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Retriever chooses wrong chunks
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Perfectly capable LLM
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Wrong / incomplete answer
+</span></span></code></pre></div><p>The generation model never received the information it needed.</p><p>Conversely:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>User Query
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Excellent retrieval
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Correct documents
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Poor generation/reasoning
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Bad answer
+</span></span></code></pre></div><p>So RAG quality must be understood as at least two separate systems:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Retrieval Quality
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>+
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Generation Quality
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Overall RAG Quality
+</span></span></code></pre></div><hr><h1 id=21-the-complete-retrieval-progression>21. The Complete Retrieval Progression</h1><p>The entire story now fits together.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                        INFORMATION RETRIEVAL
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ▼
+</span></span><span class=line><span class=cl>                           Bag of Words
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ▼
+</span></span><span class=line><span class=cl>                               TF-IDF
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ▼
+</span></span><span class=line><span class=cl>                                BM25
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ▼
+</span></span><span class=line><span class=cl>                        SPARSE RETRIEVAL
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                    Exact lexical matching
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ▼
+</span></span><span class=line><span class=cl>                         DENSE RETRIEVAL
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                              Embeddings
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                  Semantic similarity search
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                     ┌────────────┴────────────┐
+</span></span><span class=line><span class=cl>                     │                         │
+</span></span><span class=line><span class=cl>                     ▼                         ▼
+</span></span><span class=line><span class=cl>                 Bi-Encoder                ColBERT
+</span></span><span class=line><span class=cl>                 one vector             token vectors
+</span></span><span class=line><span class=cl>                     │                         │
+</span></span><span class=line><span class=cl>                     ▼                         │
+</span></span><span class=line><span class=cl>                Large-scale                    │
+</span></span><span class=line><span class=cl>               vector search                   │
+</span></span><span class=line><span class=cl>                     │                         │
+</span></span><span class=line><span class=cl>                     ▼                         │
+</span></span><span class=line><span class=cl>                    ANN ◄───────────────────────┘
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>          ┌──────────┼──────────┐
+</span></span><span class=line><span class=cl>          │          │          │
+</span></span><span class=line><span class=cl>          ▼          ▼          ▼
+</span></span><span class=line><span class=cl>         IVF        HNSW        PQ
+</span></span><span class=line><span class=cl>          │          │          │
+</span></span><span class=line><span class=cl>       reduce      graph      compress
+</span></span><span class=line><span class=cl>       search    navigation    vectors
+</span></span><span class=line><span class=cl>       space
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>          └──────────┬──────────┘
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>              Candidate Documents
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>                  Reranker
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>               Best Documents
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>              Add to LLM Context
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>                    LLM
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ▼
+</span></span><span class=line><span class=cl>                  ANSWER
+</span></span></code></pre></div><hr><h1 id=22-what-is-actually-worth-remembering>22. What Is Actually Worth Remembering?</h1><p>The implementation details can disappear from memory.</p><p>The structure shouldn&rsquo;t.</p><h3 id=sparse-vs-dense>Sparse vs Dense</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Sparse
+</span></span><span class=line><span class=cl>→ words matching words
+</span></span><span class=line><span class=cl>→ TF-IDF / BM25
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Dense
+</span></span><span class=line><span class=cl>→ meaning matching meaning
+</span></span><span class=line><span class=cl>→ embeddings
+</span></span></code></pre></div><h3 id=bi-encoder-vs-cross-encoder>Bi-encoder vs Cross-encoder</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Bi-encoder
+</span></span><span class=line><span class=cl>→ encode query and documents independently
+</span></span><span class=line><span class=cl>→ scalable
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Cross-encoder
+</span></span><span class=line><span class=cl>→ query + document together
+</span></span><span class=line><span class=cl>→ richer interaction
+</span></span><span class=line><span class=cl>→ expensive
+</span></span><span class=line><span class=cl>→ excellent for reranking
+</span></span></code></pre></div><h3 id=ann>ANN</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Millions of vectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Exact comparison becomes expensive
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Approximate Nearest Neighbor search
+</span></span></code></pre></div><h3 id=ivf>IVF</h3><blockquote><p><strong>Reduce where I search.</strong></p></blockquote><h3 id=hnsw>HNSW</h3><blockquote><p><strong>Navigate efficiently toward nearby vectors.</strong></p></blockquote><h3 id=pq>PQ</h3><blockquote><p><strong>Compress what I store.</strong></p></blockquote><h3 id=reranking>Reranking</h3><blockquote><p><strong>Retrieve broadly and cheaply first; evaluate a small candidate set more carefully afterward.</strong></p></blockquote><h3 id=hybrid-retrieval>Hybrid retrieval</h3><blockquote><p><strong>Use lexical and semantic retrieval together because each catches things the other misses.</strong></p></blockquote><hr><h1 id=23-the-rag-mental-model>23. The RAG Mental Model</h1><p>When everything else is forgotten, reconstruct it from this:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                         USER QUERY
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                    Understand the query
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                         RETRIEVAL
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                ┌─────────────┴─────────────┐
+</span></span><span class=line><span class=cl>                ▼                           ▼
+</span></span><span class=line><span class=cl>              BM25                      Embeddings
+</span></span><span class=line><span class=cl>             Sparse                       Dense
+</span></span><span class=line><span class=cl>                │                           │
+</span></span><span class=line><span class=cl>                └─────────────┬─────────────┘
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                       ANN at scale
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                 ┌────────────┼────────────┐
+</span></span><span class=line><span class=cl>                 ▼            ▼            ▼
+</span></span><span class=line><span class=cl>                IVF          HNSW          PQ
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                      Candidate chunks
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                           Rerank
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                     Best relevant chunks
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                    Query + RAG Context
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                             LLM
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>                              ▼
+</span></span><span class=line><span class=cl>                           ANSWER
+</span></span></code></pre></div><p>RAG itself is simple:</p><blockquote><p><strong>Retrieve useful information before asking the model to generate.</strong></p></blockquote><p>The complexity comes from making <strong>&ldquo;retrieve useful information&rdquo;</strong> work accurately, quickly and cheaply at scale.</p><p>And that is why concepts that existed long before LLMs—TF-IDF, BM25, inverted indexes, nearest-neighbor search, clustering, quantization and information retrieval—suddenly become part of understanding modern generative AI systems.</p></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <title> Sachin Kottarathodi&#39;s Space - Tech </title>
+    <link rel="stylesheet" type="text/css" href="/css/fonts.css">
+    <link rel="stylesheet" type="text/css" href="/css/fontawesome.css">
+    
+    
+    <link rel="stylesheet" type="text/css" href="/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    <meta charset="UTF-8">
+    <meta name="author" content="Sachin Kottarathodi">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+<body>
+<header class="page-header">
+    <div class="myname"> 
+        <h2><a href="http://localhost:1313/"> Sachin Kottarathodi&#39;s Space</a></h2> 
+    </div>
+    <nav>
+        <ul class="navbar">
+            <li class="">
+                <a href="/">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li class="">
+                <a href="/resume/">
+                    <span>Resume</span>
+                </a>
+            </li>
+            <li class="dropdown activetab">
+                <a href ="/blog/">
+                    <span>Blog</span>
+                </a>
+                <div class=sub-menu>
+                    <a class="activetab" href="/categories/">All Categories</a>
+                    <a class="" href="/tags/">All Tags</a>
+                    <a class="" href="/archive/">Archive</a>
+                </div>
+            </li>
+            <li class="">
+                <a href="/contact/">
+                    <span>Contact</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+
+        <div class="wrapper">
+            <div id="content">
+<main>
+
+    <h1 class="page-title">Tech</h1>
+
+    <article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/07/use-it-or-lose-it-notes/">Use It or Lose It Notes</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-07-27</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/living">living</a>, <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/java">java</a>, <a class="blog-taxonomy-info" href="/tags/snippets">snippets</a>, <a class="blog-taxonomy-info" href="/tags/spark">spark</a>, <a class="blog-taxonomy-info" href="/tags/use-it-or-lose-it">use-it-or-lose-it</a>
+    </span>
+
+</p>
+    <p><blockquote>
+<p>Because I mostly don&rsquo;t use it, and then end up losing it.</p>
+</blockquote>
+<p>This is my living blog of quick, forgotten patterns. Not profound, just practical.</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li>
+<p><a href="#spark">Spark</a></p>
+</li>
+<li>
+<p><a href="#java">Java</a></p>
+</li>
+</ul>
+<h2 id="spark">Spark</h2>
+<h3 id="1-create-a-sparksession-boilerplate-i-always-forget">1. Create a SparkSession (Boilerplate I always forget)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="n">SparkSession</span><span class="w"> </span><span class="n">spark</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SparkSession</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">.</span><span class="na">appName</span><span class="p">(</span><span class="s">&#34;UILI&#34;</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">.</span><span class="na">master</span><span class="p">(</span><span class="s">&#34;local[*]&#34;</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">.</span><span class="na">getOrCreate</span><span class="p">();</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h3 id="2-create-a-dataset-from-strings-not-from-files">2. Create a Dataset from Strings (not from files)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="n">Dataset</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">spark</span><span class="p">.</span><span class="na">createDataset</span><span class="p">(</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">Arrays</span><span class="p">.</span><span class="na">asList</span><span class="p">(</span><span class="s">&#34;Abc&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;xyz&#34;</span><span class="p">),</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">Encoders</span><span class="p">.</span><span class="na">STRING</span><span class="p">()</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="p">);</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h3 id="3-sparkconf-and-rdd-creation-options">3. SparkConf and RDD creation options</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="n">SparkConf</span><span class="w"> </span><span class="n">conf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">SparkConf</span><span class="p">().</span><span class="na">setAppName</span><span class="p">(</span><span class="s">&#34;uili&#34;</span><span class="p">).</span><span class="na">setMaster</span><span class="p">(</span><span class="s">&#34;local[*]&#34;</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">JavaSparkContext</span><span class="w"> </span><span class="n">sc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">JavaSparkContext</span><span class="p">(</span><span class="n">conf</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Create RDDs from:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">sc</span><span class="p">.</span><span class="na">parallelize</span><span class="p">(...);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">sc</span><span class="p">.</span><span class="na">textFile</span><span class="p">(</span><span class="s">&#34;path&#34;</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">sc</span><span class="p">.</span><span class="na">wholeTextFiles</span><span class="p">(</span><span class="s">&#34;path&#34;</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Or convert from DataFrame:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">df</span><span class="p">.</span><span class="na">javaRDD</span><span class="p">();</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Or from Kafka:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">JavaInputDStream</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span><span class="w"> </span><span class="n">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KafkaUtils</span><span class="p">.</span><span class="na">createStream</span><span class="p">(...);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="n">lines</span><span class="p">.</span><span class="na">foreachRDD</span><span class="p">(</span><span class="n">rdd</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* process rdd */</span><span class="w"> </span><span class="p">});</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h3 id="4-word-count-with-stopword-filtering">4. Word Count with Stopword Filtering</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="w">                </span><span class="n">lines</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">flatMap</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">  </span><span class="n">Arrays</span><span class="p">.</span><span class="na">asList</span><span class="p">(</span><span class="n">SPACE</span><span class="p">.</span><span class="na">split</span><span class="p">(</span><span class="n">s</span><span class="p">)).</span><span class="na">iterator</span><span class="p">())</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">filter</span><span class="p">(</span><span class="w"> </span><span class="n">word</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">word</span><span class="p">.</span><span class="na">isEmpty</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">stopWords</span><span class="p">.</span><span class="na">contains</span><span class="p">(</span><span class="n">word</span><span class="p">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">mapToPair</span><span class="p">(</span><span class="n">word</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Tuple2</span><span class="o">&lt;&gt;</span><span class="p">(</span><span class="n">word</span><span class="p">,</span><span class="w"> </span><span class="n">1</span><span class="p">))</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">reduceByKey</span><span class="p">(</span><span class="n">Integer</span><span class="p">::</span><span class="n">sum</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">mapToPair</span><span class="p">(</span><span class="n">Tuple2</span><span class="p">::</span><span class="n">swap</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">sortByKey</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">take</span><span class="p">(</span><span class="n">10</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                </span><span class="p">.</span><span class="na">forEach</span><span class="p">(</span><span class="w"> </span><span class="n">tuple</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="na">out</span><span class="p">.</span><span class="na">println</span><span class="p">(</span><span class="n">tuple</span><span class="p">.</span><span class="na">_1</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&#34;: &#34;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">tuple</span><span class="p">.</span><span class="na">_2</span><span class="p">());});</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h3 id="5-custom-partitioner">5. Custom Partitioner</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="n">rdd</span><span class="p">.</span><span class="na">partitionBy</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">UserIdModPartitioner</span><span class="p">(</span><span class="n">10</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="kd">public</span><span class="w"> </span><span class="kd">static</span><span class="w"> </span><span class="kd">class</span> <span class="nc">UserIdModPartitioner</span><span class="w"> </span><span class="kd">extends</span><span class="w"> </span><span class="n">Partitioner</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kd">final</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">numPartitions</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="nf">UserIdModPartitioner</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">numPartitions</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="na">numPartitions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">numPartitions</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nd">@Override</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">numPartitions</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">numPartitions</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nd">@Override</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">getPartition</span><span class="p">(</span><span class="n">Object</span><span class="w"> </span><span class="n">key</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">Integer</span><span class="w"> </span><span class="n">userId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span><span class="w"> </span><span class="n">key</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">userId</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">numPartitions</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nd">@Override</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="nf">equals</span><span class="p">(</span><span class="n">Object</span><span class="w"> </span><span class="n">obj</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">obj</span><span class="w"> </span><span class="k">instanceof</span><span class="w"> </span><span class="n">UserIdModPartitioner</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="p">((</span><span class="n">UserIdModPartitioner</span><span class="p">)</span><span class="w"> </span><span class="n">obj</span><span class="p">).</span><span class="na">numPartitions</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="na">numPartitions</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="p">}</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h3 id="6-groupbykey-vs-reducebykey-vs-mapvalues">6. groupByKey vs reduceByKey vs mapValues</h3>
+<ul>
+<li><code>groupByKey()</code> → Avoid for large data. Shuffles everything.</li>
+<li><code>reduceByKey()</code> → Preferred. Does local aggregation before shuffle.</li>
+<li><code>mapValues()</code> → Lightweight transform on values only (no shuffle).</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="n">rdd</span><span class="p">.</span><span class="na">mapValues</span><span class="p">(</span><span class="n">value</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">transform</span><span class="p">(</span><span class="n">value</span><span class="p">));</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h2 id="java">Java</h2>
+<blockquote>
+<p>Random nuggets that fade away from memory faster than they should.</p>
+</blockquote><span> <a href="http://localhost:1313/blog/2025/07/use-it-or-lose-it-notes/">Read more...</a></span>
+    </p>
+</article>
+<article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/07/system-design-distributed-log-ingestion/">System Design - Distributed Log Ingestion</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-07-20</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/hld">hld</a>, <a class="blog-taxonomy-info" href="/tags/system-design">system-design</a>
+    </span>
+
+</p>
+    <p><h1 id="-system-design-interview-summary-log-ingestion--query-system">🧠 System Design Interview Summary: Log Ingestion &amp; Query System</h1>
+<p><strong>Interviewer:</strong> Vega<br>
+<strong>Topic:</strong> Design a system for log ingestion, storage, and querying across multi-tenant agents</p>
+<hr>
+<h2 id="-high-level-architecture">✅ High-Level Architecture</h2>
+<ol>
+<li><strong>Agents</strong> send logs (JSON) via HTTP to a <strong>rate-limited ingress service</strong></li>
+<li>Ingress service writes logs to <strong>Kafka</strong> (HA cluster)</li>
+<li>Two main Kafka consumers:
+<ul>
+<li><strong>Object Store Consumer</strong>: Stores raw logs in GCS/S3</li>
+<li><strong>Indexing Consumer</strong>: Pushes structured logs to <strong>Elasticsearch</strong></li>
+</ul>
+</li>
+<li><strong>Elasticsearch Cluster</strong> (with snapshots) holds searchable logs</li>
+<li><strong>Query Layer</strong> exposes APIs (or Kibana) to end users</li>
+<li><strong>Metadata DB</strong> stores user info, tenant configs, RBAC rules</li>
+<li><strong>Telemetry pipeline</strong> for usage and system health insights</li>
+</ol>
+<hr>
+<h2 id="-key-design-decisions">💡 Key Design Decisions</h2>
+<h3 id="-data-format">🔹 Data Format</h3>
+<ul>
+<li><strong>JSON</strong> for ingestion (readable, schema-tolerant)</li>
+<li><strong>Protobuf</strong> or <strong>compressed archives</strong> for long-term storage</li>
+</ul>
+<h3 id="-schema-evolution">🔹 Schema Evolution</h3>
+<ul>
+<li>Agent schemas versioned per tenant</li>
+<li>Schema registry to ensure backward compatibility</li>
+<li>Only expected fields are accepted/processed</li>
+</ul>
+<h3 id="-indexing--querying">🔹 Indexing &amp; Querying</h3>
+<ul>
+<li>Indexed fields include timestamp, log level, service name, etc.</li>
+<li>Optional full-text search on <code>message</code> field</li>
+<li>Search APIs backed by RBAC and tenant-scoped filters</li>
+</ul>
+<h3 id="-elasticsearch-resilience">🔹 ElasticSearch Resilience</h3>
+<ul>
+<li>High availability setup with shard replication</li>
+<li>Snapshots taken periodically for disaster recovery</li>
+<li>Index Lifecycle Management (ILM) policies to manage TTL</li>
+</ul>
+<hr>
+<h2 id="-multi-tenancy-strategy">🏢 Multi-Tenancy Strategy</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Type</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Pseudo Multi-Tenancy</strong></td>
+					<td>Shared Kafka/Elastic infra, tenant isolation via schema/index prefixes</td>
+			</tr>
+			<tr>
+					<td><strong>True Multi-Tenancy</strong></td>
+					<td>Dedicated infra (Kafka, GCS, Elastic) per tenant — promoted based on volume or SLA</td>
+			</tr>
+			<tr>
+					<td><strong>RBAC</strong></td>
+					<td>Controlled via metadata DB and AD group mapping</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="-security-rate-limiting--abuse-protection">🛡️ Security, Rate Limiting &amp; Abuse Protection</h2>
+<ul>
+<li><strong>Ingress Layer</strong> (HTTP proxy) applies:
+<ul>
+<li>Request validation</li>
+<li>API token auth</li>
+<li>Rate limiting per tenant</li>
+</ul>
+</li>
+<li>Circuit breaker patterns to prevent cascading failures</li>
+<li>DDOS prevention via quotas &amp; burst control</li>
+</ul>
+<hr>
+<h2 id="-telemetry--monitoring">📊 Telemetry &amp; Monitoring</h2>
+<ul>
+<li>Logs from agents and query APIs sent to a telemetry Kafka topic</li>
+<li>Prometheus/Grafana stack monitors system health and usage patterns</li>
+<li>Audit logs retained for admin usage</li>
+</ul>
+<hr>
+<h2 id="-resilience--failure-handling">🔁 Resilience &amp; Failure Handling</h2>
+<ul>
+<li>Kafka consumers checkpointed to restart safely</li>
+<li>Elasticsearch snapshot restore plans</li>
+<li>Retry queues for failed ingestion</li>
+<li>Dead Letter Queue (DLQ) for malformed logs</li>
+</ul>
+<hr>
+<h2 id="-object-storage-strategy">📦 Object Storage Strategy</h2>
+<ul>
+<li>Long-term log archive in GCS/S3 with partitioning by tenant/date</li>
+<li>Lifecycle rules to auto-transition to cold storage (e.g., after 30 days)</li>
+<li>Optional encryption per tenant (KMS)</li>
+</ul>
+<hr>
+<h1 id="-pia-notes--follow-ups--deep-dive-areas">📌 PIA Notes — Follow-Ups &amp; Deep Dive Areas</h1>
+<h3 id="-retention--lifecycle">🔸 Retention &amp; Lifecycle</h3>
+<ul>
+<li>Per-tenant TTL?</li>
+<li>ILM policy configurations in Elasticsearch?</li>
+<li>GCS lifecycle rules for archival?</li>
+</ul>
+<h3 id="-schema-strategy">🔸 Schema Strategy</h3>
+<ul>
+<li>Schema registry integration</li>
+<li>How to version agent schemas cleanly?</li>
+<li>What to do if agent sends unexpected fields?</li>
+</ul>
+<h3 id="-query-layer-ux">🔸 Query Layer UX</h3>
+<ul>
+<li>Native UI (like Kibana) or custom frontend?</li>
+<li>Role-based query controls</li>
+<li>Audit logs of queries</li>
+</ul>
+<h3 id="-telemetry--alerts">🔸 Telemetry &amp; Alerts</h3>
+<ul>
+<li>Can users set their own alert rules?</li>
+<li>Do we support lag/delay/error rate alerting?</li>
+<li>Anomaly detection roadmap?</li>
+</ul>
+<h3 id="-multi-tenancy-expansion">🔸 Multi-Tenancy Expansion</h3>
+<ul>
+<li>What triggers upgrade to true multi-tenancy?</li>
+<li>Cost model for per-tenant provisioning</li>
+<li>How to support hybrid mode?</li>
+</ul>
+<h3 id="-backpressure--rate-limiting">🔸 Backpressure &amp; Rate Limiting</h3>
+<ul>
+<li>Propagation of backpressure to agents?</li>
+<li>Real-time quota metrics exposed to tenants?</li>
+</ul>
+<hr><span> <a href="http://localhost:1313/blog/2025/07/system-design-distributed-log-ingestion/">Read more...</a></span>
+    </p>
+</article>
+<article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/07/genai-agents/">GenAI Agents</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-07-14</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/agents">Agents</a>, <a class="blog-taxonomy-info" href="/tags/genai">GenAI</a>, <a class="blog-taxonomy-info" href="/tags/llms">LLMs</a>
+    </span>
+
+</p>
+    <p><h2 id="what-is-a-generative-ai-agent">What is a Generative AI Agent?</h2>
+<ul>
+<li>A GenAI agent is an application that <strong>achieves goals</strong> by <strong>observing the world</strong> and <strong>acting upon it using tools</strong>.</li>
+<li>It is <strong>autonomous</strong>, capable of acting <strong>independently</strong> of human intervention.</li>
+<li>It reasons, makes decisions, and <strong>proactively</strong> chooses steps to achieve its goal — even without explicit instructions.</li>
+<li>Focus is on the <strong>specific type of agents</strong> powered by <strong>Generative AI models</strong>.</li>
+</ul>
+<hr>
+<h2 id="core-components-cognitive-architecture">Core Components (Cognitive Architecture)</h2>
+<ul>
+<li><strong>Model</strong> – The foundation (e.g., LLM).</li>
+<li><strong>Orchestration</strong> – The reasoning loop and logic.</li>
+<li><strong>Tools</strong> – How the agent interacts with external systems.</li>
+</ul>
+<hr>
+<h2 id="agent-architecture--interaction-with-the-outside-world">Agent Architecture – Interaction with the Outside World</h2>
+<h3 id="tools">Tools:</h3>
+<ul>
+<li><strong>Functions</strong></li>
+<li><strong>Extensions</strong></li>
+<li><strong>Data Stores</strong></li>
+<li><strong>Plugins</strong></li>
+</ul>
+<blockquote>
+<p>These bridge the foundational model with the real world.</p>
+</blockquote><span> <a href="http://localhost:1313/blog/2025/07/genai-agents/">Read more...</a></span>
+    </p>
+</article>
+<article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/07/embedding-vector-stores-notes/">Embedding &amp; Vector Stores: Notes</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-07-13</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/embeddings">Embeddings</a>, <a class="blog-taxonomy-info" href="/tags/genai">GenAI</a>, <a class="blog-taxonomy-info" href="/tags/llms">LLMs</a>, <a class="blog-taxonomy-info" href="/tags/vector-stores">Vector Stores</a>
+    </span>
+
+</p>
+    <p><h1 id="embedding--vector-stores">Embedding &amp; Vector Stores</h1>
+<h2 id="what-are-embeddings">What are Embeddings?</h2>
+<ul>
+<li><strong>Low-dimensional numerical representation</strong> of almost anything (text, audio, images, video).</li>
+<li>A <strong>lossy compression</strong> technique: mapping complex data into simpler space while retaining semantic meaning.</li>
+<li>Enables <strong>pattern recognition</strong> — embeddings capture <strong>semantic similarity</strong> and <strong>underlying meaning</strong>.</li>
+<li>Useful for <strong>efficient large-scale processing</strong>.</li>
+<li>Think of it as: <em>&ldquo;encoding meaning in vector form.&rdquo;</em></li>
+</ul>
+<h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Retrieval &amp; Recommendation</strong> systems.</li>
+<li><strong>Search engines</strong>: precompute embeddings for billions of pages, convert search query to embedding, find nearest neighbours in vector space.</li>
+<li><strong>Joint Embeddings</strong>:
+<ul>
+<li>Handle <strong>multi-modal data</strong> (e.g., text &amp; images).</li>
+<li>Map different modalities into the same embedding space for cross-modal matching.</li>
+</ul>
+</li>
+</ul>
+<h2 id="evaluation-metrics">Evaluation Metrics</h2>
+<p>How effective is your embedding?</p><span> <a href="http://localhost:1313/blog/2025/07/embedding-vector-stores-notes/">Read more...</a></span>
+    </p>
+</article>
+
+
+<ul class="pagination">
+    
+    <li class="page-item">
+        <a href="/categories/tech/" class="page-link" aria-label="First"><span
+                aria-hidden="true">&laquo;</span></a>
+    </li>
+    
+    <li class="page-item">
+    <a href="/categories/tech/page/2/"
+        class="page-link" aria-label="Previous"><span aria-hidden="true">&lsaquo;</span></a>
+    </li>
+    
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item"><a class="page-link" href="/categories/tech/">1</a></li>
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item"><a class="page-link" href="/categories/tech/page/2/">2</a></li>
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item active"><a class="page-link" href="/categories/tech/page/3/">3</a></li>
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item"><a class="page-link" href="/categories/tech/page/4/">4</a></li>
+    
+    
+    <li class="page-item">
+    <a href="/categories/tech/page/4/"
+        class="page-link" aria-label="Next"><span aria-hidden="true">&rsaquo;</span></a>
+    </li>
+    
+    <li class="page-item">
+        <a href="/categories/tech/page/4/" class="page-link" aria-label="Last"><span aria-hidden="true">&raquo;</span></a>
+    </li>
+    
+</ul>
+
+</main>
+
+            </div>
+        </div><footer>
+    <span></span>
+    <p>&copy; 2026 Sachin Kottarathodi. Powered by <a href="https://github.com/gevhaz/hugo-theme-notrack" target="_blank">Notrack</a>.</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - Product Quantization</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">Product Quantization</h1><p class=blog-post-info>Posted: <time>2026-08-14</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Categories:
+<a class=blog-taxonomy-info href=/categories/tech>tech</a></span>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/genai>GenAI</a>, <a class=blog-taxonomy-info href=/tags/llms>LLMs</a>, <a class=blog-taxonomy-info href=/tags/rags>RAGs</a></span></p><div class=blog-post-content><blockquote><p><strong>AI-polished:</strong> This post originated from notes and questions while working through the topic in detail. AI was used to organize the notes, connect the ideas, and polish them into a coherent blog post.</p></blockquote><h1 id=product-quantization--from-40-gb-of-vectors-to-160-mb>Product Quantization — From 40 GB of Vectors to 160 MB</h1><p>Dense retrieval introduces a scaling problem beyond search latency: <strong>memory</strong>.</p><p>Suppose a vector database contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000 vectors
+</span></span></code></pre></div><p>Each vector contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024 dimensions
+</span></span></code></pre></div><p>and each dimension is represented using:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>float32 = 4 bytes
+</span></span></code></pre></div><p>The raw storage required for the vectors is:</p><p>[
+10,000,000 \times 1024 \times 4
+]</p><p>[
+= 40,960,000,000\text{ bytes}
+]</p><p>or approximately:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>40.96 GB
+</span></span></code></pre></div><p>And this is only the vector data.</p><p>At hundreds of millions or billions of vectors, keeping every vector in full precision becomes increasingly expensive.</p><p>This is one of the problems <strong>Product Quantization (PQ)</strong> tries to solve.</p><p>The central idea is:</p><blockquote><p><strong>Instead of storing every floating-point value of every vector, split the vectors into smaller pieces, approximate each piece using a learned representative vector, and store only the ID of that representative.</strong></p></blockquote><hr><h1 id=1-split-each-vector-into-subvectors>1. Split Each Vector into Subvectors</h1><p>Suppose PQ is configured with:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>m = 16
+</span></span></code></pre></div><p>Our original vector contains 1024 dimensions.</p><p>Therefore each vector is divided into 16 subvectors:</p><p>[
+1024 / 16 = 64
+]</p><p>Each subvector contains 64 dimensions.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Original 1024-D vector
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌────────┬────────┬────────┬────── ... ──────┬────────┐
+</span></span><span class=line><span class=cl>│   S1   │   S2   │   S3   │                 │  S16   │
+</span></span><span class=line><span class=cl>│  64-D  │  64-D  │  64-D  │                 │  64-D  │
+</span></span><span class=line><span class=cl>└────────┴────────┴────────┴────── ... ──────┴────────┘
+</span></span></code></pre></div><p>Do this for all database vectors:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Vector 1 → [S1][S2][S3] ... [S16]
+</span></span><span class=line><span class=cl>Vector 2 → [S1][S2][S3] ... [S16]
+</span></span><span class=line><span class=cl>Vector 3 → [S1][S2][S3] ... [S16]
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>Nothing has been compressed yet.</p><p>We have simply divided the original vector space into smaller subspaces.</p><hr><h1 id=2-learn-representative-centroids>2. Learn Representative Centroids</h1><p>Now take only the <strong>first subvector position</strong> across many training vectors:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Vector 1 → S1 ─┐
+</span></span><span class=line><span class=cl>Vector 2 → S1  │
+</span></span><span class=line><span class=cl>Vector 3 → S1  │
+</span></span><span class=line><span class=cl>Vector 4 → S1  ├──→ K-means
+</span></span><span class=line><span class=cl>...            │
+</span></span><span class=line><span class=cl>Vector N → S1 ─┘
+</span></span></code></pre></div><p>Every <code>S1</code> is a 64-dimensional vector.</p><p>Suppose PQ is configured with:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>k = 256
+</span></span></code></pre></div><p>Run K-means with:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>K = 256
+</span></span></code></pre></div><p>K-means groups these 64-dimensional subvectors into 256 clusters.</p><p>Each cluster gets a representative center:</p><blockquote><p><strong>Centroid</strong></p></blockquote><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                   S1 subvectors
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                • • •
+</span></span><span class=line><span class=cl>              • • • •
+</span></span><span class=line><span class=cl>                • •
+</span></span><span class=line><span class=cl>                 ↓
+</span></span><span class=line><span class=cl>            Centroid #0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                           • •
+</span></span><span class=line><span class=cl>                         • • • •
+</span></span><span class=line><span class=cl>                           •
+</span></span><span class=line><span class=cl>                           ↓
+</span></span><span class=line><span class=cl>                      Centroid #1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>               ...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                      Centroid #255
+</span></span></code></pre></div><p>For subspace <code>S1</code>, we therefore learn:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Centroid 0
+</span></span><span class=line><span class=cl>Centroid 1
+</span></span><span class=line><span class=cl>Centroid 2
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Centroid 255
+</span></span></code></pre></div><p>These 256 centroid vectors collectively form a:</p><blockquote><p><strong>Codebook</strong></p></blockquote><p>Therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>All S1 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>     K-means
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 representative centroids
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>    Codebook 1
+</span></span></code></pre></div><hr><h1 id=3-build-one-codebook-per-subspace>3. Build One Codebook per Subspace</h1><p>Repeat this independently for every subvector position.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>All S1 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>K-means
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 centroids
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Codebook 1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>All S2 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>K-means
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 centroids
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Codebook 2
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>All S3 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>K-means
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 centroids
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Codebook 3
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>All S16 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>K-means
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 centroids
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Codebook 16
+</span></span></code></pre></div><p>Our PQ model therefore contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 codebooks
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>256 centroids per codebook
+</span></span></code></pre></div><p>Each centroid is itself a 64-dimensional representative vector.</p><p>These centroids are learned during <strong>PQ training/index construction</strong>.</p><p>They are not rediscovered when a query arrives.</p><hr><h1 id=4-compress-a-database-vector>4. Compress a Database Vector</h1><p>Now that the codebooks exist, the database vectors can be compressed.</p><p>Take one database vector:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024-D vector
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>[S1][S2][S3] ... [S16]
+</span></span></code></pre></div><p>Consider <code>S1</code>.</p><p>It contains 64 float32 values.</p><p>Compare it against the 256 centroids in <strong>Codebook 1</strong>:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1
+</span></span><span class=line><span class=cl> │
+</span></span><span class=line><span class=cl> ├── distance → centroid 0
+</span></span><span class=line><span class=cl> ├── distance → centroid 1
+</span></span><span class=line><span class=cl> ├── distance → centroid 2
+</span></span><span class=line><span class=cl> │
+</span></span><span class=line><span class=cl> │
+</span></span><span class=line><span class=cl> └── distance → centroid 255
+</span></span></code></pre></div><p>Suppose its nearest centroid is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Centroid #73
+</span></span></code></pre></div><p>We now approximate:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1 ≈ Centroid #73
+</span></span></code></pre></div><p>Instead of storing the original 64-dimensional subvector, store:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>73
+</span></span></code></pre></div><p>This is the <strong>PQ code</strong> for <code>S1</code>.</p><hr><h1 id=5-repeat-for-all-16-subvectors>5. Repeat for All 16 Subvectors</h1><p>Suppose the nearest centroids are:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1  → centroid 73
+</span></span><span class=line><span class=cl>S2  → centroid 191
+</span></span><span class=line><span class=cl>S3  → centroid 22
+</span></span><span class=line><span class=cl>S4  → centroid 5
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>S16 → centroid 8
+</span></span></code></pre></div><p>The original vector containing:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024 float32 values
+</span></span></code></pre></div><p>is now represented as:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>[73, 191, 22, 5, ..., 8]
+</span></span></code></pre></div><p>These 16 numbers are its <strong>PQ codes</strong>.</p><p>They mean:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1  ≈ centroid 73  from Codebook 1
+</span></span><span class=line><span class=cl>S2  ≈ centroid 191 from Codebook 2
+</span></span><span class=line><span class=cl>S3  ≈ centroid 22  from Codebook 3
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>S16 ≈ centroid 8   from Codebook 16
+</span></span></code></pre></div><p>The original values are no longer stored in the codes-only representation.</p><p>Instead, we store instructions for approximating the original vector using the learned codebooks.</p><hr><h1 id=6-why-does-this-compress-so-well>6. Why Does This Compress So Well?</h1><p>Recall:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>k = 256
+</span></span></code></pre></div><p>Therefore each codebook contains 256 possible centroid IDs:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>0 ... 255
+</span></span></code></pre></div><p>Since:</p><p>[
+256 = 2^8
+]</p><p>a centroid ID requires:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>8 bits = 1 byte
+</span></span></code></pre></div><p>Each vector contains 16 subvectors.</p><p>Therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 subvectors
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>1 byte per centroid ID
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>16 bytes/vector
+</span></span></code></pre></div><p>Compare that with the original vector.</p><h2 id=before-pq>Before PQ</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1024 dimensions
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>4 bytes per float32
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>4096 bytes/vector
+</span></span></code></pre></div><h2 id=after-pq>After PQ</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 centroid IDs
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>1 byte
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>16 bytes/vector
+</span></span></code></pre></div><p>Therefore:</p><p>[
+4096 / 16 = 256
+]</p><p>The PQ codes are:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256× smaller
+</span></span></code></pre></div><p>than the original vectors in this example.</p><hr><h1 id=7-back-to-the-10-million-vector-example>7. Back to the 10-Million-Vector Example</h1><p>Originally:</p><p>[
+10,000,000 \times 1024 \times 4
+]</p><p>gives:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>40.96 GB
+</span></span></code></pre></div><p>After PQ:</p><p>[
+10,000,000 \times 16 \times 1
+]</p><p>gives:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>160,000,000 bytes
+</span></span><span class=line><span class=cl>≈ 160 MB
+</span></span></code></pre></div><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10 million
+</span></span><span class=line><span class=cl>1024-D
+</span></span><span class=line><span class=cl>float32 vectors
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>     40.96 GB
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>       PQ
+</span></span><span class=line><span class=cl> m=16, k=256
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>10 million
+</span></span><span class=line><span class=cl>× 16 centroid IDs
+</span></span><span class=line><span class=cl>× 1 byte
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      ~160 MB
+</span></span></code></pre></div><p>That is approximately:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256× compression
+</span></span></code></pre></div><p>for the stored vector codes.</p><p>The codebooks themselves also consume memory, but they are small compared with storing millions of full vectors.</p><hr><h1 id=8-but-how-do-we-search-compressed-vectors>8. But How Do We Search Compressed Vectors?</h1><p>This is the other half of Product Quantization.</p><p>Suppose a query arrives.</p><p>The embedding model produces the normal full-precision query vector:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1024-D float32 vector
+</span></span></code></pre></div><p>An important point:</p><blockquote><p><strong>The query does not normally need to be converted into PQ codes.</strong></p></blockquote><p>Instead, we keep the query at full precision.</p><p>This is called:</p><blockquote><p><strong>Asymmetric Distance Computation — ADC</strong></p></blockquote><p>Why asymmetric?</p><p>Because the two sides have different representations:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query                    Database
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Full precision           PQ compressed
+</span></span><span class=line><span class=cl>1024-D vector             16 centroid IDs
+</span></span></code></pre></div><hr><h1 id=9-split-the-query-into-the-same-subspaces>9. Split the Query into the Same Subspaces</h1><p>The query is divided exactly like the database vectors:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query 1024-D vector
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌────────┬────────┬────────┬────── ... ──────┬────────┐
+</span></span><span class=line><span class=cl>│   Q1   │   Q2   │   Q3   │                 │  Q16   │
+</span></span><span class=line><span class=cl>│  64-D  │  64-D  │  64-D  │                 │  64-D  │
+</span></span><span class=line><span class=cl>└────────┴────────┴────────┴────── ... ──────┴────────┘
+</span></span></code></pre></div><p>So:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>16 × 64-D subvectors
+</span></span></code></pre></div><p>But unlike database vectors, these query subvectors are <strong>not replaced by centroid IDs</strong>.</p><hr><h1 id=10-build-a-distance-lookup-table-for-the-query>10. Build a Distance Lookup Table for the Query</h1><p>Take <code>Q1</code>.</p><p>Codebook 1 already contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256 centroids
+</span></span></code></pre></div><p>Calculate the distance between <code>Q1</code> and every centroid in Codebook 1:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q1 → centroid 0   = distance
+</span></span><span class=line><span class=cl>Q1 → centroid 1   = distance
+</span></span><span class=line><span class=cl>Q1 → centroid 2   = distance
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Q1 → centroid 255 = distance
+</span></span></code></pre></div><p>This gives:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256 distances
+</span></span></code></pre></div><p>Do the same for <code>Q2</code> using Codebook 2:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Q2 → centroid 0
+</span></span><span class=line><span class=cl>Q2 → centroid 1
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Q2 → centroid 255
+</span></span></code></pre></div><p>Again:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>256 distances
+</span></span></code></pre></div><p>Repeat for all 16 query subvectors.</p><p>The result is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 subspaces
+</span></span><span class=line><span class=cl>×
+</span></span><span class=line><span class=cl>256 centroid distances
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>4096 distances
+</span></span></code></pre></div><p>This is the <strong>per-query distance lookup table</strong>.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                 Centroid IDs
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>             0    1    2    ...   255
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Q1          d10  d11  d12   ...   d1,255
+</span></span><span class=line><span class=cl>Q2          d20  d21  d22   ...   d2,255
+</span></span><span class=line><span class=cl>Q3          d30  d31  d32   ...   d3,255
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Q16         ...                   ...
+</span></span></code></pre></div><p>If each distance is stored as float32:</p><p>[
+4096 \times 4 = 16,384\text{ bytes}
+]</p><p>or:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 KB
+</span></span></code></pre></div><p>per query.</p><p>This table is computed <strong>once when the query arrives</strong>.</p><p>It is then reused while scoring database vectors.</p><hr><h1 id=11-score-a-compressed-database-vector>11. Score a Compressed Database Vector</h1><p>Recall one of our compressed database vectors:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>[73, 191, 22, 5, ..., 8]
+</span></span></code></pre></div><p>This tells us:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Subspace 1  → centroid 73
+</span></span><span class=line><span class=cl>Subspace 2  → centroid 191
+</span></span><span class=line><span class=cl>Subspace 3  → centroid 22
+</span></span><span class=line><span class=cl>Subspace 4  → centroid 5
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Subspace 16 → centroid 8
+</span></span></code></pre></div><p>Now use those IDs to access the query&rsquo;s distance table.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Lookup:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Q1  → centroid 73
+</span></span><span class=line><span class=cl>Q2  → centroid 191
+</span></span><span class=line><span class=cl>Q3  → centroid 22
+</span></span><span class=line><span class=cl>Q4  → centroid 5
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Q16 → centroid 8
+</span></span></code></pre></div><p>Suppose those distances are:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>0.12
+</span></span><span class=line><span class=cl>0.31
+</span></span><span class=line><span class=cl>0.08
+</span></span><span class=line><span class=cl>0.21
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>0.14
+</span></span></code></pre></div><p>Add them:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>0.12
+</span></span><span class=line><span class=cl>+ 0.31
+</span></span><span class=line><span class=cl>+ 0.08
+</span></span><span class=line><span class=cl>+ 0.21
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>+ 0.14
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Approximate distance between
+</span></span><span class=line><span class=cl>the query and database vector
+</span></span></code></pre></div><p>The database vector never needs to be reconstructed into its original 1024 floating-point values just to perform this scoring.</p><hr><h1 id=12-why-16-lookups-and-15-additions>12. Why 16 Lookups and 15 Additions?</h1><p>The database vector contains:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 PQ codes
+</span></span></code></pre></div><p>Each code selects one distance from the lookup table.</p><p>Therefore scoring one database vector requires:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 table lookups
+</span></span></code></pre></div><p>Those 16 distance values must then be summed.</p><p>Adding 16 numbers requires:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>15 additions
+</span></span></code></pre></div><p>Therefore:</p><blockquote><p><strong>16 lookups, 15 additions per database vector</strong></p></blockquote><p>after the per-query lookup table has been constructed.</p><p>This is one reason PQ can make large-scale vector search extremely efficient.</p><hr><h1 id=13-why-keep-the-query-at-full-precision>13. Why Keep the Query at Full Precision?</h1><p>We compressed the database because there might be:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10,000,000
+</span></span></code></pre></div><p>database vectors.</p><p>But at search time there may be only:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>1 query vector
+</span></span></code></pre></div><p>Compressing 10 million vectors saves enormous amounts of memory.</p><p>Compressing the single query saves almost nothing.</p><p>Worse, quantizing the query would throw away additional information.</p><p>So we keep:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Full precision
+</span></span></code></pre></div><p>while using:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Database
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Compressed PQ representation
+</span></span></code></pre></div><p>Hence:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>              ASYMMETRIC
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Query                       Database
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Full precision              Compressed
+</span></span><span class=line><span class=cl>1024-D                      PQ codes
+</span></span><span class=line><span class=cl>   │                           │
+</span></span><span class=line><span class=cl>   │                           │
+</span></span><span class=line><span class=cl>   └───────────┬───────────────┘
+</span></span><span class=line><span class=cl>               │
+</span></span><span class=line><span class=cl>               ▼
+</span></span><span class=line><span class=cl>       Approximate distance
+</span></span></code></pre></div><p>This is <strong>Asymmetric Distance Computation</strong>.</p><hr><h1 id=14-what-was-precomputed-and-what-happens-at-query-time>14. What Was Precomputed and What Happens at Query Time?</h1><p>This distinction makes the whole process easier to remember.</p><h2 id=index--training-time>Index / Training Time</h2><p>Do this ahead of time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Database vectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Split into 16 subvectors
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Run K-means independently
+</span></span><span class=line><span class=cl>for each subspace
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Learn 16 codebooks
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>256 centroids/codebook
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Map every database subvector
+</span></span><span class=line><span class=cl>to nearest centroid
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>Store PQ codes
+</span></span></code></pre></div><p>So by search time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Database vector
+</span></span><span class=line><span class=cl>=
+</span></span><span class=line><span class=cl>[73, 191, 22, ..., 8]
+</span></span></code></pre></div><p>is already available.</p><hr><h2 id=query-time>Query Time</h2><p>Now:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Embedding
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>1024-D full-precision vector
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Split into 16 subvectors
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>For each query subvector,
+</span></span><span class=line><span class=cl>calculate distance to
+</span></span><span class=line><span class=cl>256 corresponding centroids
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>16 × 256 distance table
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>4096 distances
+</span></span></code></pre></div><p>Then for each candidate database vector:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Read its 16 PQ codes
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>16 distance-table lookups
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>15 additions
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Approximate distance
+</span></span></code></pre></div><hr><h1 id=15-the-complete-pq-lifecycle>15. The Complete PQ Lifecycle</h1><p>Putting everything together:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                    INDEXING / TRAINING
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>              10 million 1024-D vectors
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                  Split each into
+</span></span><span class=line><span class=cl>                  16 × 64-D subvectors
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>             K-means per subvector position
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                16 × 256 centroids
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    16 codebooks
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>              Map database subvectors
+</span></span><span class=line><span class=cl>               to nearest centroids
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    Store IDs only
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                   16 bytes/vector
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                      ~160 MB
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                       QUERY TIME
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    Query embedding
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                 1024-D float32 vector
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    Split into 16
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>             Distance from each query
+</span></span><span class=line><span class=cl>              subvector to its 256
+</span></span><span class=line><span class=cl>                   codebook centroids
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>               16 × 256 lookup table
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                   4096 distances
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>               Database PQ code
+</span></span><span class=line><span class=cl>              [73,191,22,...,8]
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    16 lookups
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>                    15 additions
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>                           ▼
+</span></span><span class=line><span class=cl>              Approximate Q ↔ D distance
+</span></span></code></pre></div><hr><h1 id=16-what-did-we-sacrifice>16. What Did We Sacrifice?</h1><p>PQ isn&rsquo;t lossless compression.</p><p>Originally:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1 = exact 64 floating-point values
+</span></span></code></pre></div><p>After PQ:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>S1 ≈ centroid #73
+</span></span></code></pre></div><p>Many different original subvectors can map to the same centroid.</p><p>That means some information has been discarded.</p><p>This is <strong>quantization error</strong>.</p><p>Therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Full-precision vectors
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>More memory
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>More precise distances
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PQ-compressed vectors
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Much less memory
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Approximate distances
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>Possible retrieval recall loss
+</span></span></code></pre></div><p>The more aggressively vectors are compressed, the greater the potential distortion.</p><p>So PQ represents a classic systems trade-off:</p><blockquote><p><strong>Memory + search efficiency vs vector precision + retrieval recall</strong></p></blockquote><hr><h1 id=17-pq-vs-ivf--dont-mix-them-up>17. PQ vs IVF — Don&rsquo;t Mix Them Up</h1><p>These two ideas are easy to confuse because they are often used together.</p><h3 id=ivf-asks>IVF asks:</h3><blockquote><p><strong>Where should I search?</strong></p></blockquote><p>It partitions the vector space into regions.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Query
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Find promising IVF clusters
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Search only vectors in those clusters
+</span></span></code></pre></div><p>It reduces the <strong>search space</strong>.</p><h3 id=pq-asks>PQ asks:</h3><blockquote><p><strong>How can I store and score those vectors cheaply?</strong></p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Full vector
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Subvectors
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Centroid IDs
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Compact representation
+</span></span></code></pre></div><p>It reduces the <strong>storage and distance-computation cost</strong>.</p><p>Therefore:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>IVF
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Reduce WHERE we search
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PQ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Reduce WHAT we store
+</span></span><span class=line><span class=cl>and make distance scoring cheap
+</span></span></code></pre></div><p>And they can be combined:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>IVF
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Find promising region
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>PQ
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Cheaply score compressed vectors
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>Top candidates
+</span></span></code></pre></div><p>This gives architectures such as <strong>IVF-PQ</strong>.</p><hr><h1 id=18-the-four-numbers-worth-remembering>18. The Four Numbers Worth Remembering</h1><p>For:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>10 million vectors
+</span></span><span class=line><span class=cl>1024 dimensions
+</span></span><span class=line><span class=cl>float32
+</span></span><span class=line><span class=cl>m = 16
+</span></span><span class=line><span class=cl>k = 256
+</span></span></code></pre></div><h3 id=original-storage>Original storage</h3><p>[
+10M \times 1024 \times 4
+]</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>≈ 40.96 GB
+</span></span></code></pre></div><h3 id=pq-storage--codes-only>PQ storage — codes only</h3><p>[
+10M \times 16 \times 1
+]</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>≈ 160 MB
+</span></span></code></pre></div><h3 id=per-query-lookup-table>Per-query lookup table</h3><p>[
+16 \times 256
+]</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>4096 distance entries
+</span></span></code></pre></div><p>With float32 distances:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>≈ 16 KB
+</span></span></code></pre></div><h3 id=scoring-one-database-vector>Scoring one database vector</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>16 lookups
+</span></span><span class=line><span class=cl>15 additions
+</span></span></code></pre></div><hr><h1 id=19-the-mental-model>19. The Mental Model</h1><p>If all the implementation details are forgotten later, remember this:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                    DATABASE
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1024-D float32 vector
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Split into 16 pieces
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Each piece is 64-D
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>K-means learned 256
+</span></span><span class=line><span class=cl>representatives for each position
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Find nearest representative
+</span></span><span class=line><span class=cl>for each piece
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Store its ID
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>[73,191,22,...,8]
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>16 bytes instead of 4096 bytes
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                     QUERY
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1024-D full-precision vector
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Split into same 16 pieces
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Compare each piece against
+</span></span><span class=line><span class=cl>its 256 learned centroids
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Build distance lookup table
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Use DB&#39;s centroid IDs
+</span></span><span class=line><span class=cl>to select distances
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Add 16 distances
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>Approximate query ↔ document distance
+</span></span></code></pre></div><p>Or in two sentences:</p><blockquote><p><strong>At indexing time, PQ splits database vectors into subvectors, learns representative centroids for each subspace using K-means, and replaces each database subvector with the ID of its nearest centroid.</strong></p></blockquote><blockquote><p><strong>At query time, the query remains full precision; its distances to the learned centroids are calculated once, and the stored PQ codes are then used as cheap lookup-table indices to approximate the distance to each database vector.</strong></p></blockquote><p>That is Product Quantization end to end.</p></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>

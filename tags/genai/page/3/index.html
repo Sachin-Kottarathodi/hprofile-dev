@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <title> Sachin Kottarathodi&#39;s Space - Genai </title>
+    <link rel="stylesheet" type="text/css" href="/css/fonts.css">
+    <link rel="stylesheet" type="text/css" href="/css/fontawesome.css">
+    
+    
+    <link rel="stylesheet" type="text/css" href="/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    <meta charset="UTF-8">
+    <meta name="author" content="Sachin Kottarathodi">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+<body>
+<header class="page-header">
+    <div class="myname"> 
+        <h2><a href="http://localhost:1313/"> Sachin Kottarathodi&#39;s Space</a></h2> 
+    </div>
+    <nav>
+        <ul class="navbar">
+            <li class="">
+                <a href="/">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li class="">
+                <a href="/resume/">
+                    <span>Resume</span>
+                </a>
+            </li>
+            <li class="dropdown activetab">
+                <a href ="/blog/">
+                    <span>Blog</span>
+                </a>
+                <div class=sub-menu>
+                    <a class="" href="/categories/">All Categories</a>
+                    <a class="activetab" href="/tags/">All Tags</a>
+                    <a class="" href="/archive/">Archive</a>
+                </div>
+            </li>
+            <li class="">
+                <a href="/contact/">
+                    <span>Contact</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+
+        <div class="wrapper">
+            <div id="content">
+<main>
+
+    <h1 class="page-title">Genai</h1>
+
+    <article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/07/embedding-vector-stores-notes/">Embedding &amp; Vector Stores: Notes</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-07-13</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/embeddings">Embeddings</a>, <a class="blog-taxonomy-info" href="/tags/genai">GenAI</a>, <a class="blog-taxonomy-info" href="/tags/llms">LLMs</a>, <a class="blog-taxonomy-info" href="/tags/vector-stores">Vector Stores</a>
+    </span>
+
+</p>
+    <p><h1 id="embedding--vector-stores">Embedding &amp; Vector Stores</h1>
+<h2 id="what-are-embeddings">What are Embeddings?</h2>
+<ul>
+<li><strong>Low-dimensional numerical representation</strong> of almost anything (text, audio, images, video).</li>
+<li>A <strong>lossy compression</strong> technique: mapping complex data into simpler space while retaining semantic meaning.</li>
+<li>Enables <strong>pattern recognition</strong> — embeddings capture <strong>semantic similarity</strong> and <strong>underlying meaning</strong>.</li>
+<li>Useful for <strong>efficient large-scale processing</strong>.</li>
+<li>Think of it as: <em>&ldquo;encoding meaning in vector form.&rdquo;</em></li>
+</ul>
+<h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Retrieval &amp; Recommendation</strong> systems.</li>
+<li><strong>Search engines</strong>: precompute embeddings for billions of pages, convert search query to embedding, find nearest neighbours in vector space.</li>
+<li><strong>Joint Embeddings</strong>:
+<ul>
+<li>Handle <strong>multi-modal data</strong> (e.g., text &amp; images).</li>
+<li>Map different modalities into the same embedding space for cross-modal matching.</li>
+</ul>
+</li>
+</ul>
+<h2 id="evaluation-metrics">Evaluation Metrics</h2>
+<p>How effective is your embedding?</p><span> <a href="http://localhost:1313/blog/2025/07/embedding-vector-stores-notes/">Read more...</a></span>
+    </p>
+</article>
+<article class="blog-post-summary">
+    <h3 class="blog-post-title"><a href="http://localhost:1313/blog/2025/06/prompt-engineering-notes/">Prompt Engineering Notes</a></h3>
+
+    <p class="blog-post-info">Posted: <time>2025-06-11</time>
+    
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Categories:
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/categories/tech">tech</a>
+    </span>
+
+
+
+    <span class="blog-taxonomy-info"> &nbsp; | &nbsp; Tags: 
+        
+        
+        
+        <a class="blog-taxonomy-info" href="/tags/genai">genai</a>, <a class="blog-taxonomy-info" href="/tags/llm">llm</a>, <a class="blog-taxonomy-info" href="/tags/prompt-engineering">prompt-engineering</a>
+    </span>
+
+</p>
+    <p><h1 id="prompt-engineering-notes">Prompt Engineering Notes</h1>
+<p>Prompt engineering is the process of designing high-quality prompts to guide LLMs to produce accurate outputs. This involves refining length, structure, tone, and clarity.</p>
+<h2 id="model-specific-setup">Model-Specific Setup</h2>
+<h3 id="choose-your-llm-and-configure">Choose Your LLM and Configure:</h3>
+<ul>
+<li>Model-specific prompts and capabilities</li>
+<li>Sampling parameters:
+<ul>
+<li><strong>Output Length</strong><br>
+More tokens = more compute cost. Reducing length just truncates output.</li>
+<li><strong>ReAct model warning</strong>: Emits irrelevant tokens post-response.</li>
+</ul>
+</li>
+</ul>
+<h3 id="sampling-controls">Sampling Controls</h3>
+<table>
+	<thead>
+			<tr>
+					<th>Parameter</th>
+					<th>Effect</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>Temperature</code></td>
+					<td>Low = deterministic; High = creative/random</td>
+			</tr>
+			<tr>
+					<td><code>Top-K</code></td>
+					<td>Limit prediction to top K likely tokens</td>
+			</tr>
+			<tr>
+					<td><code>Top-P</code></td>
+					<td>Nucleus sampling = choose from top cumulative probability P</td>
+			</tr>
+			<tr>
+					<td><code>Num Tokens</code></td>
+					<td>Max output length</td>
+			</tr>
+	</tbody>
+</table>
+<h4 id="practical-guidelines">Practical Guidelines:</h4>
+<ul>
+<li><strong>Temperature = 0.2, Top-P = 0.95, Top-K = 30</strong> → Balanced</li>
+<li><strong>Temperature = 0.9, Top-P = 0.99, Top-K = 40</strong> → Creative</li>
+<li><strong>Temperature = 0.1, Top-P = 0.9, Top-K = 20</strong> → Factual</li>
+<li><strong>Temperature = 0</strong> → Tasks with one correct answer (math, facts)</li>
+</ul>
+<blockquote>
+<p>⚠️ Beware of infinite loops &amp; repetition at low temperature + long max tokens.</p>
+</blockquote><span> <a href="http://localhost:1313/blog/2025/06/prompt-engineering-notes/">Read more...</a></span>
+    </p>
+</article>
+
+
+<ul class="pagination">
+    
+    <li class="page-item">
+        <a href="/tags/genai/" class="page-link" aria-label="First"><span
+                aria-hidden="true">&laquo;</span></a>
+    </li>
+    
+    <li class="page-item">
+    <a href="/tags/genai/page/2/"
+        class="page-link" aria-label="Previous"><span aria-hidden="true">&lsaquo;</span></a>
+    </li>
+    
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item"><a class="page-link" href="/tags/genai/">1</a></li>
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item"><a class="page-link" href="/tags/genai/page/2/">2</a></li>
+    
+    
+    
+    
+    
+    
+        
+        
+    
+    
+    <li class="page-item active"><a class="page-link" href="/tags/genai/page/3/">3</a></li>
+    
+    
+    <li class="page-item disabled">
+    <a 
+        class="page-link" aria-label="Next"><span aria-hidden="true">&rsaquo;</span></a>
+    </li>
+    
+    <li class="page-item">
+        <a href="/tags/genai/page/3/" class="page-link" aria-label="Last"><span aria-hidden="true">&raquo;</span></a>
+    </li>
+    
+</ul>
+
+</main>
+
+            </div>
+        </div><footer>
+    <span></span>
+    <p>&copy; 2026 Sachin Kottarathodi. Powered by <a href="https://github.com/gevhaz/hugo-theme-notrack" target="_blank">Notrack</a>.</p>
+</footer>
+
+</body>
+</html>

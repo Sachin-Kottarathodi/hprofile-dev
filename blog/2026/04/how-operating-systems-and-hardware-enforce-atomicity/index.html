@@ -1,0 +1,67 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - How Operating Systems and Hardware Enforce Atomicity</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">How Operating Systems and Hardware Enforce Atomicity</h1><p class=blog-post-info>Posted: <time>2026-04-14</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/system-design>system-design</a>, <a class=blog-taxonomy-info href=/tags/tech>tech</a></span></p><div class=blog-post-content><h1 id=from-file-systems-to-transistors-how-operating-systems-and-hardware-enforce-atomicity---part-1>From File Systems to Transistors: How Operating Systems and Hardware Enforce Atomicity - Part 1</h1><h2 id=ai-generated>AI Generated</h2><blockquote><p><strong>Problem Statement:</strong> If two CPU cores attempt the same operation at
+almost exactly the same instant&mdash;such as creating <code>temp.txt</code> with
+<code>O_CREAT | O_EXCL</code>&mdash;why does only one succeed?</p></blockquote><p>Every backend engineer has relied on file-system atomicity. Creating a
+lock file with <code>open(..., O_CREAT | O_EXCL)</code> or using <code>mkdir()</code> as a
+lock are common synchronization techniques.</p><p>If two processes attempt to create the same file at nearly the same
+time, the operating system guarantees that exactly one succeeds while
+the other receives <code>EEXIST</code>.</p><p>How does that guarantee emerge?</p><p>The answer spans the entire stack&mdash;from the Virtual File System (VFS),
+through kernel synchronization, atomic CPU instructions, cache
+coherence, and finally into the digital hardware that establishes a
+single observable order for conflicting operations.</p><hr><h2 id=layer-1-file-system-vfs>Layer 1: File System (VFS)</h2><p>Both processes enter the kernel through a system call.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Process A ----\
+</span></span><span class=line><span class=cl>               --&gt; VFS --&gt; Parent Directory --&gt; Synchronization --&gt; Update Directory
+</span></span><span class=line><span class=cl>Process B ----/
+</span></span></code></pre></div><p>Before modifying a directory, the kernel protects the directory&rsquo;s
+metadata using kernel synchronization primitives. The exact primitive is
+an implementation detail and may vary across kernel versions, but the
+guarantee is the same:</p><ul><li>one thread performs the conflicting modification,</li><li>others wait,</li><li>later arrivals observe the updated directory state.</li></ul><p>The winner creates the directory entry.</p><p>The second process eventually examines the directory, finds that
+<code>temp.txt</code> already exists, and returns <code>EEXIST</code>.</p><hr><h2 id=layer-2-kernel-synchronization>Layer 2: Kernel Synchronization</h2><p>Kernel synchronization protects shared state.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Shared State
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ├── Thread A acquires ownership
+</span></span><span class=line><span class=cl>     └── Thread B waits
+</span></span></code></pre></div><p>Internally, Linux uses synchronization primitives such as mutexes,
+reader-writer semaphores, spinlocks and wait queues depending on the
+situation.</p><p>The important abstraction is <strong>not which primitive is used</strong>, but that
+the kernel guarantees only one execution path modifies the shared data
+at a time.</p><p>If another thread cannot proceed immediately, it is typically placed on
+a wait queue and scheduled later instead of wasting CPU cycles.</p><hr><h2 id=layer-3-atomic-cpu-operations>Layer 3: Atomic CPU Operations</h2><p>Eventually the kernel relies on atomic hardware operations.</p><p>On x86 this often involves instructions such as <code>CMPXCHG</code> together with
+atomic memory semantics.</p><p>Other architectures provide equivalent primitives (for example ARM&rsquo;s
+Load-Exclusive / Store-Exclusive instructions).</p><p>Different instruction sets use different mechanisms, but they all
+provide the same guarantee:</p><blockquote><p>Read, modify and write shared memory as one indivisible operation.</p></blockquote><hr><h2 id=layer-4-cache-coherence>Layer 4: Cache Coherence</h2><p>Multiple CPU cores each have private caches.</p><p>If two cores both wish to modify the same memory location, they cannot
+both own that cache line for writing simultaneously.</p><p>The processor&rsquo;s cache-coherence protocol establishes a globally
+consistent order for conflicting ownership requests.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Core 1  ----\
+</span></span><span class=line><span class=cl>              ---&gt; Coherence subsystem ---&gt; Exclusive ownership granted
+</span></span><span class=line><span class=cl>Core 2  ----/
+</span></span></code></pre></div><p>One request is processed first.</p><p>The other observes the updated state and therefore fails its
+compare-and-exchange operation.</p><p>The exact implementation differs across processors (Intel, AMD, ARM,
+Apple Silicon, etc.), but the architectural guarantee remains the same.</p><hr><h2 id=layer-5-digital-hardware>Layer 5: Digital Hardware</h2><p>At the lowest level, processors are built from clocked digital logic.</p><p>Hardware is designed so conflicting requests cannot both commit
+simultaneously.</p><p>The processor establishes a deterministic ordering for writes to the
+same shared memory location, allowing software to observe a single
+consistent outcome.</p><p>The implementation involves complex hardware&mdash;cache controllers,
+coherence logic, interconnects and digital state machines&mdash;but those
+details are intentionally hidden behind the abstraction of atomic memory
+operations.</p><hr><h2 id=putting-it-together>Putting It Together</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Application
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>File System
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Kernel Synchronization
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Atomic CPU Instruction
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Cache Coherence
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Digital Hardware
+</span></span></code></pre></div><p>Each layer builds on guarantees provided by the layer below it.</p><p>The implementation changes.</p><p>The guarantee does not.</p><hr><h2 id=conclusion>Conclusion</h2><p>When you call:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=n>open</span><span class=p>(</span><span class=s>&#34;lock.file&#34;</span><span class=p>,</span> <span class=n>O_CREAT</span> <span class=o>|</span> <span class=n>O_EXCL</span><span class=p>)</span>
+</span></span></code></pre></div><p>you rely on an entire chain of synchronization.</p><p>The file system serializes conflicting directory updates.</p><p>The kernel protects shared state with synchronization primitives.</p><p>The processor performs atomic memory operations.</p><p>The cache-coherence protocol ensures every core agrees on the order of
+conflicting writes.</p><p>Modern computers do <strong>not</strong> eliminate parallelism. Millions of
+operations execute concurrently every second.</p><p>What they eliminate is <strong>ambiguity</strong>.</p><p>Whenever multiple actors compete to modify the same shared state, the
+system guarantees one deterministic outcome that every participant
+ultimately observes.</p></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>

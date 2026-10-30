@@ -1,0 +1,149 @@
+<!doctype html><html><head><title>Sachin Kottarathodi's Space - NLP & Explainable AI (XAI) — Quick Reference Notes</title><link rel=stylesheet type=text/css href=/hprofile-dev/css/fonts.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/fontawesome.css><link rel=stylesheet type=text/css href=/hprofile-dev/css/styles.min.d0ade84f57e202bf5256f9af22ba63200a2a8ea64152739d8c0c108962fc3d0b.css><link rel=icon href=/hprofile-dev/img/favicon.ico><meta charset=utf-8><meta name=author content="Sachin Kottarathodi"><meta name=viewport content="width=device-width,initial-scale=1"></head><body><header class=page-header><div class=myname><h2><a href=https://sachin-kottarathodi.github.io/hprofile-dev/>Sachin Kottarathodi's Space</a></h2></div><nav><ul class=navbar><li><a href=/hprofile-dev/><span>Home</span></a></li><li><a href=/hprofile-dev/resume/><span>Resume</span></a></li><li class="dropdown activetab"><a href=/hprofile-dev/blog/><span>Blog</span></a><div class=sub-menu><a href=/hprofile-dev/categories/>All Categories</a>
+<a href=/hprofile-dev/tags/>All Tags</a>
+<a href=/hprofile-dev/archive/>Archive</a></div></li><li><a href=/hprofile-dev/contact/><span>Contact</span></a></li></ul></nav></header><div class=wrapper><div id=content><main><article><h1 class="page-title blog">NLP & Explainable AI (XAI) — Quick Reference Notes</h1><p class=blog-post-info>Posted: <time>2026-08-23</time>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Categories:
+<a class=blog-taxonomy-info href=/categories/tech>tech</a></span>
+<span class=blog-taxonomy-info>&nbsp; | &nbsp; Tags:
+<a class=blog-taxonomy-info href=/tags/genai>GenAI</a>, <a class=blog-taxonomy-info href=/tags/llms>LLMs</a></span></p><div class=blog-post-content><blockquote><p>AI generated - These are quick reference notes meant to help reconstruct the concepts later rather than serve as a deep dive.</p></blockquote><h2 id=nlp-techniques--quick-reference>NLP Techniques — Quick Reference</h2><table><thead><tr><th>Technique</th><th>Concept</th><th>One-liner</th></tr></thead><tbody><tr><td><strong>Bag of Words (BoW)</strong></td><td>Sparse text representation</td><td>Represents text using word occurrence/counts while largely ignoring word order and context.</td></tr><tr><td><strong>Naive Bayes</strong></td><td>Probabilistic classifier</td><td>Uses Bayes&rsquo; theorem with a strong feature-independence assumption; historically common for text classification.</td></tr><tr><td><strong>VADER</strong></td><td>Lexicon-based sentiment analysis</td><td>Uses a predefined sentiment lexicon and rules to estimate positive, negative, neutral, and compound sentiment.</td></tr><tr><td><strong>BERT Embeddings</strong></td><td>Contextual representation</td><td>Represents words using surrounding context, so the same word can have different representations depending on usage.</td></tr><tr><td><strong>ABSA</strong></td><td>Aspect-Based Sentiment Analysis</td><td>Determines sentiment toward individual aspects rather than assigning one sentiment to the entire text.</td></tr><tr><td><strong>Zero-shot Classification</strong></td><td>No task-specific examples</td><td>Uses a pretrained/foundation model to perform classification without providing labeled examples.</td></tr><tr><td><strong>Few-shot Classification</strong></td><td>In-context examples</td><td>Provides a small number of examples in the prompt to demonstrate the desired classification behavior.</td></tr></tbody></table><h3 id=evolution-at-a-glance>Evolution at a Glance</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Lexicon / Rules
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>VADER
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Classical ML
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>BoW → Naive Bayes
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Contextual Language Models
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>BERT / Embeddings
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Fine-grained NLP
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>ABSA
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Foundation Models
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Zero-shot / Few-shot
+</span></span></code></pre></div><hr><h2 id=xai--post-hoc-explainability>XAI — Post-Hoc Explainability</h2><p><strong>Post-hoc explainability</strong> means explaining or interpreting a model&rsquo;s behavior <strong>after the model has already produced its prediction</strong>.</p><table><thead><tr><th>Technique</th><th>Core Question</th><th>One-liner</th></tr></thead><tbody><tr><td><strong>Attention Weights</strong></td><td>What did the model attend to?</td><td>Inspects how strongly different tokens or regions attend to one another; attention should not automatically be treated as a causal explanation.</td></tr><tr><td><strong>Saliency / Gradients</strong></td><td>Which inputs most influenced the output?</td><td>Measures how sensitive the model&rsquo;s output is to particular input features, often using gradients.</td></tr><tr><td><strong>LIME</strong></td><td>What explains this particular prediction locally?</td><td>Perturbs the input, observes prediction changes, and fits a simple interpretable model around that specific example.</td></tr><tr><td><strong>SHAP</strong></td><td>How much did each feature contribute?</td><td>Uses Shapley-value ideas from game theory to attribute portions of a prediction to individual input features.</td></tr></tbody></table><h2 id=lime-vs-shap--example>LIME vs SHAP — Example</h2><p>Consider a sentiment model receiving:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>&#34;The camera is excellent but the battery is terrible.&#34;
+</span></span></code></pre></div><p>Suppose the model predicts:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Negative: 0.82
+</span></span></code></pre></div><p>Both LIME and SHAP can help explain this prediction, but they approach the problem differently.</p><h3 id=lime--local-interpretable-model-agnostic-explanations>LIME — Local Interpretable Model-agnostic Explanations</h3><p>LIME tries to understand the model&rsquo;s behavior <strong>around this particular input</strong>.</p><p>It creates many slightly modified versions of the input and observes how the model&rsquo;s prediction changes.</p><p>For example:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Original:
+</span></span><span class=line><span class=cl>&#34;The camera is excellent but the battery is terrible.&#34;
+</span></span><span class=line><span class=cl>→ Negative: 0.82
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Remove &#34;terrible&#34;:
+</span></span><span class=line><span class=cl>&#34;The camera is excellent but the battery is.&#34;
+</span></span><span class=line><span class=cl>→ Negative: 0.18
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Remove &#34;excellent&#34;:
+</span></span><span class=line><span class=cl>&#34;The camera is but the battery is terrible.&#34;
+</span></span><span class=line><span class=cl>→ Negative: 0.94
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Remove &#34;battery&#34;:
+</span></span><span class=line><span class=cl>&#34;The camera is excellent but the is terrible.&#34;
+</span></span><span class=line><span class=cl>→ Negative: 0.61
+</span></span></code></pre></div><p>From many such perturbations, LIME might observe:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>terrible   → strongly pushes toward NEGATIVE
+</span></span><span class=line><span class=cl>battery    → somewhat important
+</span></span><span class=line><span class=cl>excellent  → pushes toward POSITIVE
+</span></span><span class=line><span class=cl>camera     → relatively small effect
+</span></span></code></pre></div><p>LIME then fits a <strong>simple interpretable model</strong>, often something like a linear model, around these observations.</p><p>The simple model is not trying to reproduce the behavior of the original model everywhere. It only tries to approximate the model <strong>near this particular input</strong>.</p><p>Hence the name:</p><ul><li><strong>Local</strong> — explains the model around one particular prediction.</li><li><strong>Interpretable</strong> — uses a simpler model that humans can understand.</li><li><strong>Model-agnostic</strong> — does not need to understand the internals of the original model; it only needs inputs and outputs.</li></ul><p>Mental model:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Original input
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Perturb the input many ways
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Run each variation through the model
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Observe how predictions change
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Fit a simple local model
+</span></span><span class=line><span class=cl>      ↓
+</span></span><span class=line><span class=cl>Identify locally important features
+</span></span></code></pre></div><blockquote><p><strong>LIME = perturb the input and approximate the model&rsquo;s behavior locally.</strong></p></blockquote><hr><h3 id=shap--shapley-additive-explanations>SHAP — SHapley Additive exPlanations</h3><p>SHAP approaches explanation as a <strong>credit-allocation problem</strong>.</p><p>It is based on <strong>Shapley values</strong> from cooperative game theory. Imagine several players cooperating to produce an outcome. Shapley values try to answer:</p><blockquote><p>How much credit should each player receive for the final result?</p></blockquote><p>In machine learning:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Game Theory                 Machine Learning
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Players                     Input features
+</span></span><span class=line><span class=cl>   ↓                              ↓
+</span></span><span class=line><span class=cl>Work together               Combine together
+</span></span><span class=line><span class=cl>   ↓                              ↓
+</span></span><span class=line><span class=cl>Produce outcome             Produce prediction
+</span></span><span class=line><span class=cl>   ↓                              ↓
+</span></span><span class=line><span class=cl>Shapley values              SHAP values
+</span></span></code></pre></div><p>Return to the sentiment example.</p><p>Suppose the model&rsquo;s baseline negative score is:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Baseline = 0.40
+</span></span></code></pre></div><p>For our sentence it predicts:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Negative = 0.82
+</span></span></code></pre></div><p>The features collectively moved the prediction from <code>0.40 → 0.82</code>.</p><p>SHAP tries to determine how much each feature contributed to that movement.</p><p>Conceptually:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Baseline                         0.40
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&#34;terrible&#34;                      +0.38
+</span></span><span class=line><span class=cl>&#34;battery&#34;                       +0.12
+</span></span><span class=line><span class=cl>&#34;excellent&#34;                     -0.14
+</span></span><span class=line><span class=cl>&#34;camera&#34;                        +0.01
+</span></span><span class=line><span class=cl>other features                  +0.05
+</span></span><span class=line><span class=cl>                               ─────
+</span></span><span class=line><span class=cl>Prediction                      0.82
+</span></span></code></pre></div><p>The important question is: <strong>how do we decide that <code>"terrible"</code> deserves +0.38?</strong></p><p>SHAP considers the contribution of the feature across different combinations of the other features:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>How much does &#34;terrible&#34; contribute alone?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>How much does &#34;terrible&#34; contribute
+</span></span><span class=line><span class=cl>when &#34;battery&#34; is already present?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>How much does &#34;terrible&#34; contribute
+</span></span><span class=line><span class=cl>when &#34;excellent&#34; is present?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>How much does &#34;terrible&#34; contribute
+</span></span><span class=line><span class=cl>when &#34;battery&#34; and &#34;camera&#34; are present?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>The Shapley-value calculation aggregates these <strong>marginal contributions</strong> across possible feature combinations to assign credit to each feature.</p><p>This also explains the word <strong>Additive</strong> in SHAP:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Baseline
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>Feature contribution 1
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>Feature contribution 2
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>Feature contribution 3
+</span></span><span class=line><span class=cl>    +
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Explained prediction
+</span></span></code></pre></div><p>Hence:</p><p><strong>SH</strong>apley <strong>A</strong>dditive ex<strong>P</strong>lanations.</p><p>Mental model:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>Prediction
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Treat features as cooperating players
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Consider different feature combinations
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Measure each feature&#39;s marginal contribution
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Calculate Shapley values
+</span></span><span class=line><span class=cl>     ↓
+</span></span><span class=line><span class=cl>Assign contribution to each feature
+</span></span></code></pre></div><blockquote><p><strong>SHAP = distribute the prediction&rsquo;s credit among features using Shapley values.</strong></p></blockquote><hr><h2 id=lime-vs-shap--the-distinction-to-remember>LIME vs SHAP — The Distinction to Remember</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>                    MODEL
+</span></span><span class=line><span class=cl>                      │
+</span></span><span class=line><span class=cl>                      ▼
+</span></span><span class=line><span class=cl>                  Prediction
+</span></span><span class=line><span class=cl>                      │
+</span></span><span class=line><span class=cl>                      ▼
+</span></span><span class=line><span class=cl>              POST-HOC EXPLANATION
+</span></span><span class=line><span class=cl>                      │
+</span></span><span class=line><span class=cl>       ┌──────────────┼──────────────┐
+</span></span><span class=line><span class=cl>       │              │              │
+</span></span><span class=line><span class=cl>   Attention       Saliency       LIME / SHAP
+</span></span><span class=line><span class=cl>       │              │              │
+</span></span><span class=line><span class=cl>What was the      What strongly    Why this
+</span></span><span class=line><span class=cl>model attending   influenced the   particular
+</span></span><span class=line><span class=cl>to?               output?          prediction?
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>LIME
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Perturb the input
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Observe model predictions
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Fit a simple LOCAL approximation
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>&#34;Which features seem important
+</span></span><span class=line><span class=cl>around this particular example?&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>SHAP
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Consider features in different combinations
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Measure marginal contributions
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Calculate Shapley values
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>&#34;How much did each feature contribute
+</span></span><span class=line><span class=cl>to this prediction relative to a baseline?&#34;
+</span></span></code></pre></div><p>The simplest distinction:</p><blockquote><p><strong>LIME = perturb and approximate locally.</strong></p></blockquote><blockquote><p><strong>SHAP = distribute prediction credit among features using Shapley values.</strong></p></blockquote><h2 id=four-xai-one-liners>Four XAI One-Liners</h2><ul><li><strong>Attention:</strong> What was the model looking at?</li><li><strong>Saliency:</strong> What parts of the input strongly influenced the output?</li><li><strong>LIME:</strong> Perturb the input and approximate this prediction locally with a simple model.</li><li><strong>SHAP:</strong> Attribute the prediction among its input features using Shapley values.</li></ul><blockquote><p><strong>Important:</strong> These techniques provide interpretations or attributions of model behavior. They do not necessarily reveal the model&rsquo;s true internal reasoning.</p></blockquote></div></article></main></div></div><footer><span></span><p>&copy; 2026 Sachin Kottarathodi. Powered by <a href=https://github.com/gevhaz/hugo-theme-notrack target=_blank>Notrack</a>.</p></footer></body></html>
